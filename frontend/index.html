@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QQ 机器人 OpenAI 集成配置面板</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css" />
+    <script src="https://unpkg.com/element-plus"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <script>
+        const { createApp } = Vue;
+        const { ElMessage, ElMessageBox } = ElementPlus;
+
+        const app = createApp({
+            template: `
+        <div class="container">
+            <el-container>
+                <el-header>
+                    <div class="header-brand">
+                        <h1>QQ 机器人配置面板</h1>
+                        <p>NapCat / OpenAI 运行配置与状态管理</p>
+                    </div>
+                </el-header>
+                <el-main>
+                    <div class="panel-card">
+                    <el-tabs v-model="activeTab" type="border-card">
+                        <!-- OpenAI 配置选项卡 -->
+                        <el-tab-pane label="OpenAI 配置" name="openai">
+                            <div class="tab-content">
+                                <el-form :model="config.openai" label-width="150px">
+                                    <el-form-item label="Base URL">
+                                        <el-input v-model="config.openai.baseurl" placeholder="https://api.openai.com/v1"></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="API Key">
+                                        <el-input v-model="config.openai.apikey" type="password" show-password></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="Model">
+                                        <el-input v-model="config.openai.model" placeholder="gpt-4"></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="启用视觉模型">
+                                        <el-switch v-model="config.openai.vision_enabled"></el-switch>
+                                    </el-form-item>
+                                    <el-form-item>
+                                        <el-button type="primary" @click="testConnection">测试连接</el-button>
+                                    </el-form-item>
+                                </el-form>
+                            </div>
+                        </el-tab-pane>
+
+                        <!-- 自定义设置选项卡 -->
+                        <el-tab-pane label="自定义设置" name="customize">
+                            <div class="tab-content">
+                                <el-form :model="config.bot" label-width="150px">
+                                    <el-form-item label="System Prompt">
+                                        <el-input v-model="config.bot.prompt" type="textarea" rows="5"></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="自动回复">
+                                        <el-switch v-model="config.bot.auto_reply"></el-switch>
+                                    </el-form-item>
+                                    <el-form-item label="群聊仅@时回复">
+                                        <el-switch v-model="config.bot.group_only_at"></el-switch>
+                                    </el-form-item>
+                                    <el-form-item label="图像处理">
+                                        <el-switch v-model="config.features.image_processing"></el-switch>
+                                    </el-form-item>
+                                    <el-form-item label="表情转义">
+                                        <el-switch v-model="config.features.emotion_conversion"></el-switch>
+                                    </el-form-item>
+                                </el-form>
+                            </div>
+                        </el-tab-pane>
+
+                        <!-- 黑白名单选项卡 -->
+                        <el-tab-pane label="黑白名单" name="lists">
+                            <div class="tab-content">
+                                <el-tabs type="border-card">
+                                    <!-- 黑名单 -->
+                                    <el-tab-pane label="黑名单">
+                                        <el-form :model="config.blacklist" label-width="120px">
+                                            <el-form-item label="模式">
+                                                <el-select v-model="config.blacklist.mode">
+                                                    <el-option label="禁用" value="disabled"></el-option>
+                                                    <el-option label="用户黑名单" value="for_users"></el-option>
+                                                    <el-option label="群聊黑名单" value="for_groups"></el-option>
+                                                </el-select>
+                                            </el-form-item>
+                                            <el-form-item v-if="config.blacklist.mode !== 'disabled'" label="黑名单">
+                                                <el-input v-model="blacklistInput" type="textarea" rows="5" placeholder="每行一个 ID"></el-input>
+                                            </el-form-item>
+                                            <el-form-item v-if="config.blacklist.mode !== 'disabled'">
+                                                <el-button type="primary" @click="addToBlacklist">添加到黑名单</el-button>
+                                            </el-form-item>
+                                            <div v-if="config.blacklist.mode !== 'disabled'" class="list-display">
+                                                <el-tag v-for="item in config.blacklist.users.concat(config.blacklist.groups)"
+                                                        :key="item" closable @close="removeFromBlacklist(item)">
+                                                    {{ item }}
+                                                </el-tag>
+                                            </div>
+                                        </el-form>
+                                    </el-tab-pane>
+
+                                    <!-- 白名单 -->
+                                    <el-tab-pane label="白名单">
+                                        <el-form :model="config.whitelist" label-width="120px">
+                                            <el-form-item label="模式">
+                                                <el-select v-model="config.whitelist.mode">
+                                                    <el-option label="禁用" value="disabled"></el-option>
+                                                    <el-option label="用户白名单" value="for_users"></el-option>
+                                                    <el-option label="群聊白名单" value="for_groups"></el-option>
+                                                </el-select>
+                                            </el-form-item>
+                                            <el-form-item v-if="config.whitelist.mode !== 'disabled'" label="白名单">
+                                                <el-input v-model="whitelistInput" type="textarea" rows="5" placeholder="每行一个 ID"></el-input>
+                                            </el-form-item>
+                                            <el-form-item v-if="config.whitelist.mode !== 'disabled'">
+                                                <el-button type="primary" @click="addToWhitelist">添加到白名单</el-button>
+                                            </el-form-item>
+                                            <div v-if="config.whitelist.mode !== 'disabled'" class="list-display">
+                                                <el-tag v-for="item in config.whitelist.users.concat(config.whitelist.groups)"
+                                                        :key="item" closable @close="removeFromWhitelist(item)">
+                                                    {{ item }}
+                                                </el-tag>
+                                            </div>
+                                        </el-form>
+                                    </el-tab-pane>
+                                </el-tabs>
+                            </div>
+                        </el-tab-pane>
+
+                        <!-- 状态监控选项卡 -->
+                        <el-tab-pane label="状态监控" name="status">
+                            <div class="tab-content">
+                                <el-row :gutter="20">
+                                    <el-col :span="12">
+                                        <el-statistic title="napcat 连接状态" :value="status.napcat_connected ? '已连接' : '未连接'"></el-statistic>
+                                    </el-col>
+                                    <el-col :span="12">
+                                        <el-statistic title="OpenAI 连接状态" :value="status.openai_connected ? '已连接' : '未连接'"></el-statistic>
+                                    </el-col>
+                                </el-row>
+                                <div class="status-hint">
+                                    <div><strong>当前 NapCat 地址：</strong>{{ status.napcat_url || config.advanced.napcat_url }}</div>
+                                    <div v-if="status.napcat_error" class="status-error"><strong>连接错误：</strong>{{ status.napcat_error }}</div>
+                                </div>
+                                <el-divider></el-divider>
+                                <h3>最近消息日志</h3>
+                                <div class="status-actions">
+                                    <el-button @click="refreshStatus">刷新状态</el-button>
+                                    <el-button type="danger" plain @click="clearLogs">清理日志</el-button>
+                                </div>
+                                <div class="log-display" ref="logDisplayRef">
+                                    <div v-if="recentMessages.length === 0" class="no-data">暂无消息</div>
+                                    <div v-for="(msg, index) in recentMessages" :key="index" class="log-item">
+                                        <span class="timestamp">{{ formatTime(msg.timestamp) }}</span>
+                                        <span class="user">{{ msg.role === 'assistant' ? 'AI' : msg.user_id }}</span>
+                                        <span class="content">{{ msg.content }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </el-tab-pane>
+
+                        <!-- 高级设置选项卡 -->
+                        <el-tab-pane label="高级设置" name="advanced">
+                            <div class="tab-content">
+                                <el-form :model="config.advanced" label-width="170px" class="advanced-form">
+                                    <el-form-item label="NapCat WebSocket 地址">
+                                        <el-input v-model="config.advanced.napcat_url" placeholder="ws://localhost:8080/ws/napcat"></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="NapCat Token">
+                                        <el-input v-model="config.advanced.napcat_token" type="password" show-password placeholder="留空表示不启用 token"></el-input>
+                                    </el-form-item>
+                                    <el-form-item label="本地服务端口">
+                                        <el-input-number v-model="config.advanced.service_port" :min="1024" :max="65535"></el-input-number>
+                                    </el-form-item>
+                                    <el-form-item label="日志级别">
+                                        <el-select v-model="config.advanced.log_level">
+                                            <el-option label="DEBUG" value="DEBUG"></el-option>
+                                            <el-option label="INFO" value="INFO"></el-option>
+                                            <el-option label="WARNING" value="WARNING"></el-option>
+                                            <el-option label="ERROR" value="ERROR"></el-option>
+                                        </el-select>
+                                    </el-form-item>
+                                    <el-form-item label="日志最大条数">
+                                        <el-input-number v-model="config.advanced.log_max_length" :min="20" :max="2000"></el-input-number>
+                                    </el-form-item>
+                                </el-form>
+                            </div>
+                        </el-tab-pane>
+                    </el-tabs>
+
+                    <div class="form-actions">
+                        <el-button type="primary" @click="saveConfig">保存配置</el-button>
+                        <el-button @click="resetConfig">重置</el-button>
+                    </div>
+                    </div>
+                </el-main>
+                <el-footer>
+                    <p>QQ 机器人 OpenAI 集成配置系统 v1.0.0</p>
+                </el-footer>
+            </el-container>
+        </div>
+    `,
+            data() {
+                return {
+                    activeTab: 'openai',
+                    config: {
+                        openai: {
+                            baseurl: '',
+                            apikey: '',
+                            model: 'gpt-4',
+                            vision_enabled: false
+                        },
+                        bot: {
+                            prompt: '你是一个有帮助的 AI 助手',
+                            auto_reply: true,
+                            group_only_at: true
+                        },
+                        blacklist: {
+                            mode: 'enabled',
+                            users: [],
+                            groups: [],
+                            exceptions: []
+                        },
+                        whitelist: {
+                            mode: 'disabled',
+                            users: [],
+                            groups: [],
+                            exceptions: []
+                        },
+                        features: {
+                            image_processing: true,
+                            emotion_conversion: true
+                        },
+                        advanced: {
+                            napcat_url: 'ws://localhost:8080/ws/napcat',
+                            napcat_token: '',
+                            service_port: 5000,
+                            log_level: 'INFO',
+                            log_max_length: 200
+                        }
+                    },
+                    status: {
+                        napcat_connected: false,
+                        openai_connected: false,
+                        napcat_url: '',
+                        napcat_error: ''
+                    },
+                    recentMessages: [],
+                    blacklistInput: '',
+                    whitelistInput: ''
+                };
+            },
+            methods: {
+                async loadConfig() {
+                    try {
+                        const response = await axios.get('/api/config');
+                        this.config = response.data.data;
+                    } catch (error) {
+                        ElMessage.error('加载配置失败');
+                    }
+                },
+                async saveConfig() {
+                    try {
+                        await axios.post('/api/config', this.config);
+                        ElMessage.success('配置已保存');
+                    } catch (error) {
+                        ElMessage.error('保存配置失败');
+                    }
+                },
+                resetConfig() {
+                    this.loadConfig();
+                },
+                async testConnection() {
+                    try {
+                        const response = await axios.post('/api/test-connection', {
+                            baseurl: this.config.openai.baseurl,
+                            apikey: this.config.openai.apikey,
+                            model: this.config.openai.model
+                        });
+                        if (response.data.success) {
+                            ElMessage.success('连接成功！');
+                        } else {
+                            ElMessage.error('连接失败: ' + response.data.message);
+                        }
+                    } catch (error) {
+                        ElMessage.error('测试连接失败');
+                    }
+                },
+                async refreshStatus() {
+                    try {
+                        const response = await axios.get('/api/status');
+                        this.status = response.data;
+                        this.recentMessages = response.data.recent_messages || [];
+                        if (response.data.log_max_length && this.config.advanced) {
+                            this.config.advanced.log_max_length = Number(response.data.log_max_length);
+                        }
+                        this.$nextTick(() => {
+                            const el = this.$refs.logDisplayRef;
+                            if (el) {
+                                el.scrollTop = el.scrollHeight;
+                            }
+                        });
+                    } catch (error) {
+                        ElMessage.error('刷新状态失败');
+                    }
+                },
+                async clearLogs() {
+                    try {
+                        await axios.post('/api/logs/clear');
+                        this.recentMessages = [];
+                        ElMessage.success('日志已清理');
+                    } catch (error) {
+                        ElMessage.error('清理日志失败');
+                    }
+                },
+                addToBlacklist() {
+                    if (!this.blacklistInput) return;
+                    const items = this.blacklistInput.split('\n').filter(item => item.trim());
+                    if (this.config.blacklist.mode === 'for_users') {
+                        this.config.blacklist.users.push(...items.filter(item => !this.config.blacklist.users.includes(item)));
+                    } else if (this.config.blacklist.mode === 'for_groups') {
+                        this.config.blacklist.groups.push(...items.filter(item => !this.config.blacklist.groups.includes(item)));
+                    }
+                    this.blacklistInput = '';
+                },
+                removeFromBlacklist(item) {
+                    this.config.blacklist.users = this.config.blacklist.users.filter(u => u !== item);
+                    this.config.blacklist.groups = this.config.blacklist.groups.filter(g => g !== item);
+                },
+                addToWhitelist() {
+                    if (!this.whitelistInput) return;
+                    const items = this.whitelistInput.split('\n').filter(item => item.trim());
+                    if (this.config.whitelist.mode === 'for_users') {
+                        this.config.whitelist.users.push(...items.filter(item => !this.config.whitelist.users.includes(item)));
+                    } else if (this.config.whitelist.mode === 'for_groups') {
+                        this.config.whitelist.groups.push(...items.filter(item => !this.config.whitelist.groups.includes(item)));
+                    }
+                    this.whitelistInput = '';
+                },
+                removeFromWhitelist(item) {
+                    this.config.whitelist.users = this.config.whitelist.users.filter(u => u !== item);
+                    this.config.whitelist.groups = this.config.whitelist.groups.filter(g => g !== item);
+                },
+                formatTime(timestamp) {
+                    if (!timestamp) return '';
+                    return new Date(timestamp).toLocaleString();
+                }
+            },
+            mounted() {
+                this.loadConfig();
+                this.refreshStatus();
+                // 每 5 秒刷新一次状态
+                setInterval(() => this.refreshStatus(), 5000);
+            }
+        });
+
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+</body>
+
+</html>

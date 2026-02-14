@@ -1,0 +1,10 @@
+config/*
+
+**/__pycache__/
+
+build/
+dist/
+temp/
+default_config.json
+logs/
+tempCodeRunnerFile.py

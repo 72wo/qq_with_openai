@@ -1,0 +1,230 @@
+"""FastAPI 主应用"""
+
+import asyncio
+import logging
+import os
+import json
+from collections import deque
+from pathlib import Path
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from contextlib import asynccontextmanager
+
+from .config import Config
+from .services import NapcatClient, MessageHandler
+from .api import routes
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# 全局状态
+app_state = {
+    "config": None,
+    "napcat_client": None,
+    "message_handler": None,
+    "napcat_task": None,
+}
+
+
+def get_log_max_length() -> int:
+    config = app_state.get("config")
+    if not config:
+        return 200
+    value = config.get("advanced.log_max_length", 200)
+    try:
+        parsed = int(value)
+        return max(20, min(parsed, 2000))
+    except Exception:
+        return 200
+
+
+def get_log_file_path() -> Path:
+    root_path = Path(__file__).parent.parent
+    log_file = root_path / "logs" / "recent_messages.jsonl"
+    log_file.parent.mkdir(parents=True, exist_ok=True)
+    if not log_file.exists():
+        log_file.touch()
+    return log_file
+
+
+def append_recent_message(entry: dict):
+    log_file = get_log_file_path()
+    with open(log_file, "a", encoding="utf-8") as file:
+        file.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+    max_len = get_log_max_length()
+    compact_keep = max(max_len * 2, 400)
+    if log_file.stat().st_size > 5 * 1024 * 1024:
+        recent_entries = get_recent_messages(compact_keep)
+        with open(log_file, "w", encoding="utf-8") as file:
+            for log_entry in recent_entries:
+                file.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+
+
+def get_recent_messages(limit: int | None = None) -> list[dict]:
+    max_len = get_log_max_length() if limit is None else max(1, int(limit))
+    log_file = get_log_file_path()
+    buffer: deque[dict] = deque(maxlen=max_len)
+
+    with open(log_file, "r", encoding="utf-8") as file:
+        for line in file:
+            text = line.strip()
+            if not text:
+                continue
+            try:
+                buffer.append(json.loads(text))
+            except json.JSONDecodeError:
+                continue
+
+    return list(buffer)
+
+
+def clear_recent_messages():
+    log_file = get_log_file_path()
+    with open(log_file, "w", encoding="utf-8") as file:
+        file.write("")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
+    # 启动事件
+    logger.info("应用启动中...")
+
+    # 初始化配置
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "default_config.json")
+    app_state["config"] = Config(config_path)
+
+    # 初始化 napcat 客户端
+    napcat_url = app_state["config"].get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
+    napcat_token = app_state["config"].get("advanced.napcat_token", "")
+    app_state["napcat_client"] = NapcatClient(napcat_url, napcat_token)
+
+    # 初始化消息处理器
+    app_state["message_handler"] = MessageHandler(app_state["config"], app_state["napcat_client"])
+
+    # 设置消息处理回调
+    app_state["napcat_client"].set_message_handler(app_state["message_handler"].handle_message)
+
+    # 启动 napcat 客户端
+    try:
+        if await app_state["napcat_client"].connect():
+            app_state["napcat_task"] = asyncio.create_task(app_state["napcat_client"].run())
+            logger.info("napcat 客户端已启动")
+        else:
+            logger.warning("napcat 客户端启动失败，继续运行（手动连接）")
+    except Exception as e:
+        logger.error(f"启动 napcat 客户端失败: {str(e)}")
+
+    logger.info("应用启动完成")
+
+    yield
+
+    # 关闭事件
+    logger.info("应用关闭中...")
+    if app_state["napcat_task"]:
+        app_state["napcat_task"].cancel()
+    if app_state["napcat_client"]:
+        await app_state["napcat_client"].disconnect()
+    logger.info("应用已关闭")
+
+
+# 创建 FastAPI 应用
+app = FastAPI(
+    title="QQ 机器人 OpenAI 集成",
+    description="基于 napcat WebSocket 的 QQ 机器人",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+
+def get_message_handler() -> MessageHandler:
+    return app_state["message_handler"]
+
+
+# 包含 API 路由
+app.include_router(routes.router)
+
+
+# 静态文件服务
+frontend_path = Path(__file__).parent.parent / "frontend"
+if frontend_path.exists():
+    app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+
+
+# 主页路由
+@app.get("/")
+async def root():
+    """返回主页 HTML"""
+    html_file = frontend_path / "index.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    return {"message": "QQ 机器人 OpenAI 集成系统"}
+
+
+@app.get("/health")
+async def health_check():
+    """健康检查"""
+    return {
+        "status": "healthy",
+        "napcat_connected": app_state["napcat_client"].is_connected if app_state["napcat_client"] else False,
+        "config_loaded": app_state["config"] is not None
+    }
+
+
+@app.websocket("/ws/napcat")
+async def napcat_reverse_ws(websocket: WebSocket):
+    """接收 NapCat 反向 WebSocket 连接"""
+    config = app_state.get("config")
+    expected_token = config.get("advanced.napcat_token", "") if config else ""
+    query_token = websocket.query_params.get("access_token", "")
+    auth_header = websocket.headers.get("authorization", "")
+    auth_token = ""
+    if auth_header.lower().startswith("bearer "):
+        auth_token = auth_header[7:].strip()
+
+    if expected_token and expected_token not in {query_token, auth_token}:
+        await websocket.close(code=1008, reason="Invalid token")
+        logger.warning("NapCat 反向连接鉴权失败")
+        return
+
+    await websocket.accept()
+    napcat_client = app_state.get("napcat_client")
+    if not napcat_client:
+        await websocket.close(code=1011, reason="Server not ready")
+        return
+
+    napcat_client.attach_external_websocket(websocket)
+    logger.info("NapCat 反向 WebSocket 已建立")
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+            try:
+                data = json.loads(message)
+                await napcat_client._handle_payload(data)
+            except json.JSONDecodeError:
+                logger.error("无法解析 NapCat 反向消息")
+    except WebSocketDisconnect:
+        logger.warning("NapCat 反向 WebSocket 已断开")
+        napcat_client.mark_external_disconnected()
+    except Exception as e:
+        logger.error(f"NapCat 反向 WebSocket 处理异常: {str(e)}")
+        napcat_client.mark_external_disconnected()
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "default_config.json")
+    runtime_config = Config(config_path)
+    config_port = runtime_config.get("advanced.service_port", 5000)
+
+    port = int(os.getenv("FLASK_PORT", config_port))
+    debug = os.getenv("FLASK_DEBUG", "False").lower() == "true"
+    uvicorn.run("backend.app:app", host="0.0.0.0", port=port, reload=debug)
