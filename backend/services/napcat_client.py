@@ -18,9 +18,10 @@ logger = logging.getLogger(__name__)
 class NapcatClient:
     """napcat WebSocket 客户端"""
 
-    def __init__(self, ws_url: str = "ws://localhost:8080/ws/napcat", token: Optional[str] = None):
+    def __init__(self, ws_url: str = "ws://localhost:8080/ws/napcat", token: Optional[str] = None, config=None):
         self.ws_url = ws_url
         self.token = token
+        self.config = config
         self.websocket = None
         self.is_connected = False
         self.connection_mode = "forward"
@@ -412,6 +413,10 @@ class NapcatClient:
 
     def _convert_cq_faces_in_text(self, text: str) -> str:
         """转换CQ码中的表情为文字描述"""
+        # 检查是否启用表情转换
+        if self.config and not self.config.get("features.emotion_conversion", True):
+            return text
+        
         # 处理普通表情 [CQ:face,id=xxx]
         def replace_face(match):
             try:
@@ -440,6 +445,54 @@ class NapcatClient:
         # 处理猜拳 [CQ:rps]
         text = re.sub(r"\[CQ:rps[^\]]*\]", "[猜拳]", text)
         
+        return text
+
+    def convert_text_faces_to_cq(self, text: str) -> str:
+        """把像 `[微笑]` 或 `:微笑:` 这类基于名称的表情，转换为 CQ face（如果能匹配到 ID）。
+
+        - 保持已有 CQ 码不变。
+        - 只替换能在 `face_config` 中找到名称的项。
+        """
+        if not text:
+            return text
+
+        # 避免重复转换已经是 CQ 的片段
+        if "[CQ:" in text:
+            # 只处理非 CQ 段：先把 CQ 段剥离，替换后再还原
+            parts = re.split(r'(\[CQ:[^\]]+\])', text)
+            out_parts = []
+            from .face_config import get_face_id_by_name
+            for p in parts:
+                if p.startswith('[CQ:'):
+                    out_parts.append(p)
+                else:
+                    # 替换 [名称] 形式
+                    def repl_bracket(m):
+                        name = m.group(1)
+                        fid = get_face_id_by_name(name)
+                        return f"[CQ:face,id={fid}]" if fid is not None else m.group(0)
+                    s = re.sub(r"\[([^\]]+)\]", repl_bracket, p)
+                    # 替换 :名称: 形式
+                    def repl_colon(m):
+                        name = m.group(1)
+                        fid = get_face_id_by_name(name)
+                        return f"[CQ:face,id={fid}]" if fid is not None else m.group(0)
+                    s = re.sub(r":([^:\s]+):", repl_colon, s)
+                    out_parts.append(s)
+            return ''.join(out_parts)
+
+        # 没有 CQ 码的简单文本直接替换
+        from .face_config import get_face_id_by_name
+        def repl_bracket_simple(m):
+            name = m.group(1)
+            fid = get_face_id_by_name(name)
+            return f"[CQ:face,id={fid}]" if fid is not None else m.group(0)
+        text = re.sub(r"\[([^\]]+)\]", repl_bracket_simple, text)
+        def repl_colon_simple(m):
+            name = m.group(1)
+            fid = get_face_id_by_name(name)
+            return f"[CQ:face,id={fid}]" if fid is not None else m.group(0)
+        text = re.sub(r":([^:\s]+):", repl_colon_simple, text)
         return text
 
     def _extract_text_from_message(self, message_data: Any, raw_message: str = "") -> str:
@@ -472,11 +525,14 @@ class NapcatClient:
                     texts.append(data.get("text", ""))
                 elif item_type == "face":
                     # 普通QQ表情
-                    try:
-                        face_id = int(data.get("id", 0))
-                        texts.append(self._face_id_to_text(face_id))
-                    except:
-                        texts.append("[表情]")
+                    if self.config and self.config.get("features.emotion_conversion", True):
+                        try:
+                            face_id = int(data.get("id", 0))
+                            texts.append(self._face_id_to_text(face_id))
+                        except:
+                            texts.append("[表情]")
+                    else:
+                        texts.append("")
                 elif item_type == "mface":
                     # 超级表情/魔法表情
                     summary = data.get("summary", "") or data.get("text", "")
@@ -499,11 +555,14 @@ class NapcatClient:
             if item_type == "text":
                 return data.get("text", "")
             elif item_type == "face":
-                try:
-                    face_id = int(data.get("id", 0))
-                    return self._face_id_to_text(face_id)
-                except:
-                    return "[表情]"
+                if self.config and self.config.get("features.emotion_conversion", True):
+                    try:
+                        face_id = int(data.get("id", 0))
+                        return self._face_id_to_text(face_id)
+                    except:
+                        return "[表情]"
+                else:
+                    return ""
             elif item_type == "mface":
                 summary = data.get("summary", "") or data.get("text", "")
                 return f"[{summary}]" if summary else "[超级表情]"

@@ -81,7 +81,8 @@ def get_recent_messages(limit: int | None = None) -> list[dict]:
             except json.JSONDecodeError:
                 continue
 
-    return list(buffer)
+    # 返回倒序（最新的消息在前）
+    return list(reversed(buffer))
 
 
 def clear_recent_messages():
@@ -100,10 +101,14 @@ async def lifespan(app: FastAPI):
     config_path = os.path.join(os.path.dirname(__file__), "..", "config", "default_config.json")
     app_state["config"] = Config(config_path)
 
+    # 应用配置中的日志级别
+    log_level = app_state["config"].get("advanced.log_level", "INFO")
+    logging.getLogger().setLevel(getattr(logging, log_level, logging.INFO))
+
     # 初始化 napcat 客户端
     napcat_url = app_state["config"].get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
     napcat_token = app_state["config"].get("advanced.napcat_token", "")
-    app_state["napcat_client"] = NapcatClient(napcat_url, napcat_token)
+    app_state["napcat_client"] = NapcatClient(napcat_url, napcat_token, app_state["config"])
 
     # 初始化消息处理器
     app_state["message_handler"] = MessageHandler(app_state["config"], app_state["napcat_client"])

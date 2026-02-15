@@ -21,6 +21,7 @@ class Message(BaseModel):
 class ConfigUpdate(BaseModel):
     """配置更新模型"""
     openai: Optional[dict] = None
+    vision: Optional[dict] = None
     bot: Optional[dict] = None
     blacklist: Optional[dict] = None
     whitelist: Optional[dict] = None

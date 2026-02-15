@@ -45,12 +45,43 @@
                                     <el-form-item label="Model">
                                         <el-input v-model="config.openai.model" placeholder="gpt-4"></el-input>
                                     </el-form-item>
-                                    <el-form-item label="启用视觉模型">
-                                        <el-switch v-model="config.openai.vision_enabled"></el-switch>
+                                    <el-form-item label="平均回复长度">
+                                        <el-input-number v-model="config.openai.reply_avg_length" :min="10" :max="2000"></el-input-number>
+                                    </el-form-item>
+                                    <el-form-item label="最大回复 Token">
+                                        <el-input-number v-model="config.openai.max_tokens" :min="10" :max="4096"></el-input-number>
+                                    </el-form-item>
+                                    <el-form-item label="回复超时(秒)">
+                                        <el-input-number v-model="config.openai.reply_timeout_sec" :min="5" :max="300"></el-input-number>
                                     </el-form-item>
                                     <el-form-item>
                                         <el-button type="primary" @click="testConnection">测试连接</el-button>
                                     </el-form-item>
+                                </el-form>
+                            </div>
+                        </el-tab-pane>
+
+                        <!-- 视觉模型配置选项卡 -->
+                        <el-tab-pane label="视觉模型配置" name="vision">
+                            <div class="tab-content">
+                                <el-form :model="config.vision" label-width="150px">
+                                    <el-form-item label="启用视觉模型">
+                                        <el-switch v-model="config.vision.enabled"></el-switch>
+                                    </el-form-item>
+                                    <el-form-item label="使用回复模型配置">
+                                        <el-switch v-model="config.vision.use_reply_config"></el-switch>
+                                    </el-form-item>
+                                    <template v-if="!config.vision.use_reply_config">
+                                        <el-form-item label="Base URL">
+                                            <el-input v-model="config.vision.baseurl" placeholder="https://api.openai.com/v1"></el-input>
+                                        </el-form-item>
+                                        <el-form-item label="API Key">
+                                            <el-input v-model="config.vision.apikey" type="password" show-password></el-input>
+                                        </el-form-item>
+                                        <el-form-item label="Model">
+                                            <el-input v-model="config.vision.model" placeholder="gpt-4-vision-preview"></el-input>
+                                        </el-form-item>
+                                    </template>
                                 </el-form>
                             </div>
                         </el-tab-pane>
@@ -73,6 +104,37 @@
                                     </el-form-item>
                                     <el-form-item label="表情转义">
                                         <el-switch v-model="config.features.emotion_conversion"></el-switch>
+                                    </el-form-item>
+
+                                    <el-form-item label="模拟人工打字">
+                                        <el-switch v-model="config.features.simulate_typing_enabled"></el-switch>
+                                    </el-form-item>
+
+                                    <el-form-item label="打字速度倍率">
+                                        <el-slider v-model="config.features.typing_multiplier" :min="0.2" :max="3" :step="0.1" show-input :disabled="!config.features.simulate_typing_enabled"></el-slider>
+                                    </el-form-item>
+
+                                    <el-form-item label="启用上下文">
+                                        <el-switch v-model="config.features.context_enabled"></el-switch>
+                                    </el-form-item>
+
+                                    <el-form-item label="上下文消息条数">
+                                        <el-input-number v-model="config.features.context_max_messages" :min="1" :max="200"></el-input-number>
+                                        <div class="hint">保留的用户消息轮数（AI回复不计数）；超过时按整轮（一问一答）淘汰最旧对话。</div>
+                                    </el-form-item>
+
+                                    <el-form-item label="启用上下文压缩">
+                                        <el-switch v-model="config.features.context_compression_enabled"></el-switch>
+                                        <div class="hint">开启后，被淘汰的对话会压缩为摘要保留，而非直接丢弃。</div>
+                                    </el-form-item>
+
+                                    <el-form-item label="单条消息最大字符">
+                                        <el-input-number v-model="config.features.context_message_max_chars" :min="0" :max="2000"></el-input-number>
+                                        <div class="hint">0 表示不限制；超过此长度的消息在上下文中会被截断</div>
+                                    </el-form-item>
+
+                                    <el-form-item label="图片上下文缓存大小">
+                                        <el-input-number v-model="config.features.image_context_cache_size" :min="10" :max="500"></el-input-number>
                                     </el-form-item>
                                 </el-form>
                             </div>
@@ -216,7 +278,16 @@
                             baseurl: '',
                             apikey: '',
                             model: 'gpt-4',
-                            vision_enabled: false
+                            reply_avg_length: 50,
+                            max_tokens: 500,
+                            reply_timeout_sec: 60
+                        },
+                        vision: {
+                            enabled: false,
+                            use_reply_config: true,
+                            baseurl: '',
+                            apikey: '',
+                            model: 'gpt-4-vision-preview'
                         },
                         bot: {
                             prompt: '你是一个有帮助的 AI 助手',
@@ -224,7 +295,7 @@
                             group_only_at: true
                         },
                         blacklist: {
-                            mode: 'enabled',
+                            mode: 'disabled',
                             users: [],
                             groups: [],
                             exceptions: []
@@ -237,7 +308,16 @@
                         },
                         features: {
                             image_processing: true,
-                            emotion_conversion: true
+                            emotion_conversion: true,
+                            simulate_typing_enabled: false,
+                            typing_multiplier: 1.0,
+                            typing_base_ms_per_char: 60,
+                            context_enabled: true,
+                            context_max_messages: 40,
+                            context_compression_enabled: false,
+                            context_use_model_for_compression: false,
+                            image_context_cache_size: 64,
+                            context_message_max_chars: 200
                         },
                         advanced: {
                             napcat_url: 'ws://localhost:8080/ws/napcat',
@@ -302,12 +382,6 @@
                         if (response.data.log_max_length && this.config.advanced) {
                             this.config.advanced.log_max_length = Number(response.data.log_max_length);
                         }
-                        this.$nextTick(() => {
-                            const el = this.$refs.logDisplayRef;
-                            if (el) {
-                                el.scrollTop = el.scrollHeight;
-                            }
-                        });
                     } catch (error) {
                         ElMessage.error('刷新状态失败');
                     }

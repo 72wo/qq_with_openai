@@ -306,3 +306,14 @@ QQ_FACE_MAP = {
 def get_face_name(face_id: int) -> str:
     """根据表情ID获取表情名称"""
     return QQ_FACE_MAP.get(face_id, f"表情{face_id}")
+
+
+def get_face_id_by_name(name: str) -> int | None:
+    """根据表情名称查找表情 ID（允许带/不带中括号）。找不到返回 None。"""
+    if not name:
+        return None
+    cleaned = name.strip().strip('[]')
+    for fid, fname in QQ_FACE_MAP.items():
+        if isinstance(fname, str) and fname == cleaned:
+            return fid
+    return None

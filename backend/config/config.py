@@ -24,7 +24,15 @@ class Config:
                 "baseurl": "",
                 "apikey": "",
                 "model": "gpt-4",
-                "vision_enabled": False
+                "max_tokens": 500,
+                "reply_timeout_sec": 60
+            },
+            "vision": {
+                "enabled": False,
+                "use_reply_config": True,
+                "baseurl": "",
+                "apikey": "",
+                "model": "gpt-4-vision-preview"
             },
             "bot": {
                 "prompt": "你是一个有帮助的 AI 助手",
@@ -32,7 +40,7 @@ class Config:
                 "group_only_at": True
             },
             "blacklist": {
-                "mode": "enabled",
+                "mode": "disabled",
                 "users": [],
                 "groups": [],
                 "exceptions": []
@@ -45,13 +53,23 @@ class Config:
             },
             "features": {
                 "image_processing": True,
-                "emotion_conversion": True
+                "emotion_conversion": True,
+                "simulate_typing_enabled": False,
+                "typing_multiplier": 1.0,
+                "typing_base_ms_per_char": 60,
+                "context_enabled": True,
+                "context_max_messages": 40,
+                "context_compression_enabled": False,
+                "context_use_model_for_compression": False,
+                "image_context_cache_size": 64,
+                "context_message_max_chars": 80
             },
             "advanced": {
                 "napcat_url": "ws://localhost:8080/ws/napcat",
                 "napcat_token": "",
                 "service_port": 5000,
-                "log_level": "INFO"
+                "log_level": "INFO",
+                "log_max_length": 200
             }
         }
         self.save_config()

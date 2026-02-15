@@ -242,7 +242,7 @@ qq_with_openai/
 │   │   ├── openai_service.py      # OpenAI API 集成
 │   │   ├── message_handler.py     # 消息处理逻辑
 │   │   ├── image_processor.py     # 图像处理
-│   │   └── emotion_converter.py   # 表情转义
+│   │   └── face_config.py         # QQ表情ID映射配置
 │   ├── models/
 │   │   ├── __init__.py
 │   │   └── models.py              # 数据模型
@@ -336,15 +336,16 @@ export NAPCAT_WS_URL=ws://...     # napcat WebSocket URL
 
 ## 开发指南
 
-### 添加新的表情映射
+### QQ表情映射
 
-编辑 `backend/services/emotion_converter.py` 中的 `EMOTION_MAP` 字典：
+QQ表情通过 `backend/services/face_config.py` 中的 `QQ_FACE_MAP` 字典进行映射，将表情ID转换为文字描述供AI理解。
 
 ```python
-EMOTION_MAP = {
-    "😊": "[愉快]",
-    "😂": "[大笑]",
-    # ... 添加更多映射
+QQ_FACE_MAP = {
+    0: "惊讶",
+    1: "撇嘴",
+    2: "色",
+    # ... 更多映射
 }
 ```
 

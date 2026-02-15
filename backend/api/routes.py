@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
+import logging
 from ..models import ConfigResponse, ConfigUpdate, TestConnectionResponse
 from ..services import OpenAIService, NapcatClient
 import logging
@@ -36,6 +37,8 @@ async def save_config(config_update: ConfigUpdate):
         # 更新配置
         if config_update.openai:
             config_dict["openai"].update(config_update.openai)
+        if config_update.vision:
+            config_dict["vision"].update(config_update.vision)
         if config_update.bot:
             config_dict["bot"].update(config_update.bot)
         if config_update.blacklist:
@@ -49,6 +52,15 @@ async def save_config(config_update: ConfigUpdate):
 
         config.update_config(config_dict)
 
+        # 重新初始化 OpenAI 服务（包括视觉模型）
+        message_handler = app_state.get("message_handler")
+        if message_handler:
+            message_handler.update_config()
+
+        # 动态更新日志级别
+        new_log_level = config.get("advanced.log_level", "INFO")
+        logging.getLogger().setLevel(getattr(logging, new_log_level, logging.INFO))
+
         new_napcat_url = config.get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
         new_napcat_token = config.get("advanced.napcat_token", "")
         if new_napcat_url != old_napcat_url or new_napcat_token != old_napcat_token:
@@ -60,7 +72,7 @@ async def save_config(config_update: ConfigUpdate):
             if old_client:
                 await old_client.disconnect()
 
-            app_state["napcat_client"] = NapcatClient(new_napcat_url, new_napcat_token)
+            app_state["napcat_client"] = NapcatClient(new_napcat_url, new_napcat_token, app_state["config"])
             app_state["message_handler"].napcat_client = app_state["napcat_client"]
             app_state["napcat_client"].set_message_handler(app_state["message_handler"].handle_message)
 
