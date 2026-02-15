@@ -76,11 +76,9 @@ async def save_config(config_update: ConfigUpdate):
             app_state["message_handler"].napcat_client = app_state["napcat_client"]
             app_state["napcat_client"].set_message_handler(app_state["message_handler"].handle_message)
 
-            if await app_state["napcat_client"].connect():
-                import asyncio
-                app_state["napcat_task"] = asyncio.create_task(app_state["napcat_client"].run())
-            else:
-                app_state["napcat_task"] = None
+            # 纯服务端模式：配置更新后仅重置客户端对象，不发起主动连接
+            app_state["napcat_task"] = None
+            logger.info("NapCat 客户端配置已更新")
 
         return {"success": True, "message": "配置已保存"}
     except Exception as e:

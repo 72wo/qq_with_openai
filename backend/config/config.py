@@ -65,7 +65,6 @@ class Config:
                 "context_message_max_chars": 80
             },
             "advanced": {
-                "napcat_url": "ws://localhost:8080/ws/napcat",
                 "napcat_token": "",
                 "service_port": 5000,
                 "log_level": "INFO",

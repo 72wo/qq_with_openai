@@ -233,14 +233,15 @@
                         <el-tab-pane label="高级设置" name="advanced">
                             <div class="tab-content">
                                 <el-form :model="config.advanced" label-width="170px" class="advanced-form">
-                                    <el-form-item label="NapCat WebSocket 地址">
-                                        <el-input v-model="config.advanced.napcat_url" placeholder="ws://localhost:8080/ws/napcat"></el-input>
-                                    </el-form-item>
                                     <el-form-item label="NapCat Token">
-                                        <el-input v-model="config.advanced.napcat_token" type="password" show-password placeholder="留空表示不启用 token"></el-input>
+                                        <el-input v-model="config.advanced.napcat_token" type="password" show-password placeholder="与 NapCat 配置保持一致"></el-input>
                                     </el-form-item>
                                     <el-form-item label="本地服务端口">
                                         <el-input-number v-model="config.advanced.service_port" :min="1024" :max="65535"></el-input-number>
+                                        <div class="hint" style="color: #909399; font-size: 12px; line-height: 1.5; margin-top: 5px;">
+                                            此端口同时用于 Web 面板访问和 NapCat 反向 WebSocket 连接。<br>
+                                            NapCat 端请配置为: ws://本机IP:{{config.advanced.service_port}}/ws/napcat
+                                        </div>
                                     </el-form-item>
                                     <el-form-item label="日志级别">
                                         <el-select v-model="config.advanced.log_level">

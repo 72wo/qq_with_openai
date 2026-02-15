@@ -116,15 +116,10 @@ async def lifespan(app: FastAPI):
     # 设置消息处理回调
     app_state["napcat_client"].set_message_handler(app_state["message_handler"].handle_message)
 
-    # 启动 napcat 客户端
-    try:
-        if await app_state["napcat_client"].connect():
-            app_state["napcat_task"] = asyncio.create_task(app_state["napcat_client"].run())
-            logger.info("napcat 客户端已启动")
-        else:
-            logger.warning("napcat 客户端启动失败，继续运行（手动连接）")
-    except Exception as e:
-        logger.error(f"启动 napcat 客户端失败: {str(e)}")
+    # 纯服务端模式：不主动发起连接，只等待 NapCat 反向连接
+    logger.info("NapCat 服务端模式已启动，等待反向 WebSocket 连接...")
+    # 确保 task 初始化为 None，防止后续逻辑报错
+    app_state["napcat_task"] = None
 
     logger.info("应用启动完成")
 
