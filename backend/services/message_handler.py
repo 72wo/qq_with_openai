@@ -79,9 +79,21 @@ class MessageHandler:
             image_files = message_data.get("image_files", [])
             chat_key = message_data.get("chat_key")
             chat_seq = int(message_data.get("chat_seq", 0) or 0)
+            sender_nickname = message_data.get("sender_nickname", "")
+            is_at = message_data.get("is_at", False)
+            is_at_all = message_data.get("is_at_all", False)
 
-            # 检查是否启用图像处理
-            if not self.config.get("features.image_processing", True):
+            # 检查是否启用图像处理（视觉模型未启用时强制关闭）
+            vision_enabled = self.config.get("vision.enabled", False)
+            image_processing = self.config.get("features.image_processing", True)
+            if not vision_enabled or not image_processing:
+                # 图像处理不生效时，检查是否为纯图片消息
+                has_images = bool(images or image_files)
+                if has_images and not content.strip():
+                    # 纯图片消息，直接忽略不回复
+                    logger.debug(f"图像处理未启用，忽略纯图片消息: user={user_id}, group={group_id}")
+                    return
+                # 非纯图片消息，清除图片数据但仍处理文本
                 images = []
                 image_files = []
 
@@ -97,8 +109,17 @@ class MessageHandler:
 
             # 群聊检查
             if message_type == "group":
-                if self.config.get("bot.group_only_at", True):
-                    if not message_data.get("is_at", False):
+                if not self.config.get("bot.group_only_at", True):
+                    # 群聊仅@时回复 关闭 → 群聊不回复任何消息
+                    logger.debug(f"群聊回复已关闭，跳过: group={group_id}, user={user_id}")
+                    return
+                # 群聊仅@时回复 开启 → 检查是否被直接@
+                if not is_at:
+                    # 未被直接@，检查是否@所有人且配置允许
+                    if is_at_all and self.config.get("bot.group_reply_at_all", False):
+                        pass  # @所有人且允许回复，放行
+                    else:
+                        logger.debug(f"群聊未被@，跳过: group={group_id}, user={user_id}")
                         return
 
             # 黑白名单检查
@@ -122,8 +143,13 @@ class MessageHandler:
                 if reply_message_id and self.napcat_client:
                     quoted_message = await self.napcat_client.get_message_by_id(reply_message_id)
 
-                # 构建当前用户消息内容（含图片描述和引用）
-                user_content = await self._build_user_content(content, images, quoted_message)
+                # 构建当前用户消息内容（含图片描述、引用和@上下文）
+                user_content = await self._build_user_content(
+                    content, images, quoted_message,
+                    is_at=is_at, is_at_all=is_at_all,
+                    sender_nickname=sender_nickname,
+                    message_type=message_type,
+                )
 
                 # 写入对话历史
                 self._append_to_history(chat_key, "user", user_content)
@@ -228,20 +254,24 @@ class MessageHandler:
         user_id_str = str(user_id) if user_id else ""
         group_id_str = str(group_id) if group_id else ""
 
-        # --- 白名单检查 ---
+        # --- 黑白名单互斥：只有一个会生效 ---
         whitelist = self.config.get("whitelist", {})
         wl_mode = whitelist.get("mode", "disabled")
-        if wl_mode == "for_users":
-            if user_id_str not in whitelist.get("users", []):
-                return False
-        elif wl_mode == "for_groups":
-            if message_type == "group":
-                if group_id_str not in whitelist.get("groups", []):
-                    return False
-
-        # --- 黑名单检查 ---
         blacklist = self.config.get("blacklist", {})
         bl_mode = blacklist.get("mode", "disabled")
+
+        # 白名单优先：如果白名单启用，黑名单无效
+        if wl_mode != "disabled":
+            if wl_mode == "for_users":
+                return user_id_str in whitelist.get("users", [])
+            elif wl_mode == "for_groups":
+                if message_type == "group":
+                    return group_id_str in whitelist.get("groups", [])
+                # 私聊在群聊白名单模式下放行
+                return True
+            return True
+
+        # 黑名单检查
         if bl_mode == "disabled":
             return True
 
@@ -255,9 +285,26 @@ class MessageHandler:
 
         return True
 
-    async def _build_user_content(self, message: str, images: list, quoted_message: Optional[Dict[str, Any]]) -> str:
-        """构建单条 user 消息内容，将引用和图片描述拼入文本。"""
+    async def _build_user_content(
+        self,
+        message: str,
+        images: list,
+        quoted_message: Optional[Dict[str, Any]],
+        is_at: bool = False,
+        is_at_all: bool = False,
+        sender_nickname: str = "",
+        message_type: str = "",
+    ) -> str:
+        """构建单条 user 消息内容，将引用、图片描述和 @上下文拼入文本。"""
         parts = []
+
+        # 群聊 @ 上下文（告诉 AI 是谁 @ 了它）
+        if message_type == "group":
+            name = sender_nickname or "someone"
+            if is_at:
+                parts.append(f"[用户 {name} @了你]")
+            elif is_at_all:
+                parts.append(f"[你被 @全体成员 提及，发送者是 {name}]")
 
         # 引用消息
         if quoted_message:
@@ -273,8 +320,9 @@ class MessageHandler:
             if img_desc:
                 parts.append(f"[图片]{img_desc}")
 
-        # 当前消息
-        parts.append(message)
+        # 当前消息文本
+        if message:
+            parts.append(message)
 
         return "\n".join(parts)
 
@@ -485,7 +533,7 @@ class MessageHandler:
 
         # 获取配置参数
         typing_multiplier = float(self.config.get("features.typing_multiplier", 1.0) or 1.0)
-        base_ms_per_char = int(self.config.get("features.typing_base_ms_per_char", 80) or 80)
+        base_ms_per_char = int(self.config.get("features.typing_base_ms_per_char", 120) or 120)
 
         # 1. 阅读理解时间（0.5-2秒）
         # 消息越长，阅读时间越长
@@ -516,8 +564,8 @@ class MessageHandler:
         # 3. 打字时间
         # 估算回复字符数（去掉 CQ 码和表情）
         reply_chars = self._estimate_typing_length(ai_reply)
-        # 打字速度：每字 base_ms_per_char 毫秒
-        typing_time = (reply_chars * base_ms_per_char / 1000.0) * typing_multiplier
+        # 打字速度：每字 base_ms_per_char 毫秒，multiplier 是速度倍率（越大越快）
+        typing_time = (reply_chars * base_ms_per_char / 1000.0) / typing_multiplier
         # 添加随机波动（±15%），模拟打字速度变化
         typing_time *= random.uniform(0.85, 1.15)
 

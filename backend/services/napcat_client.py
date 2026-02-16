@@ -260,6 +260,10 @@ class NapcatClient:
                 user_id = data.get("user_id")
                 raw_message = data.get("raw_message", "")
                 message_segments = data.get("message")
+                # 从事件中提取发送者昵称（OneBot v11 sender 字段）
+                sender = data.get("sender", {})
+                # 群名片(card) 优先，其次是 nickname
+                sender_nickname = (sender.get("card") or sender.get("nickname") or "").strip()
                 chat_key = f"group:{group_id}" if message_type == "group" else f"private:{user_id}"
                 current_seq = self._chat_seq_map.get(chat_key, 0) + 1
                 self._chat_seq_map[chat_key] = current_seq
@@ -267,15 +271,38 @@ class NapcatClient:
                 images = self._extract_images_from_message(message_segments, raw_message)
                 image_files = self._extract_image_files_from_message(message_segments, raw_message)
 
+                # 检测是否被 @（OneBot v11 标准：检查消息段中的 at 类型）
+                self_id = str(data.get("self_id", ""))
+                is_at, is_at_all = self._check_is_at(message_segments, raw_message, self_id)
+
+                if message_type == "group":
+                    logger.info(
+                        f"@检测: self_id={self_id!r}, is_at={is_at}, is_at_all={is_at_all}, "
+                        f"user_id={user_id}, raw={raw_message[:150]!r}, "
+                        f"segments_types={[s.get('type') for s in (message_segments or []) if isinstance(s, dict)]}, "
+                        f"at_qqs={[str(s.get('data',{}).get('qq','')) for s in (message_segments or []) if isinstance(s,dict) and s.get('type')=='at']}"
+                    )
+
+                # 提取纯文本内容（去掉图片/回复/at等CQ码）
+                text_content = self._extract_text_from_message(message_segments, raw_message)
+                if not text_content:
+                    # fallback：用表情转换处理 raw_message，但也要清除图片/回复/at CQ码
+                    fallback = self._convert_cq_faces_in_text(raw_message)
+                    fallback = re.sub(r"\[CQ:image,[^\]]+\]", "", fallback)
+                    fallback = re.sub(r"\[CQ:reply,[^\]]+\]", "", fallback)
+                    fallback = re.sub(r"\[CQ:at,[^\]]+\]", "", fallback)
+                    text_content = fallback.strip()
+
                 message_data = {
                     "message_id": data.get("message_id"),
                     "user_id": user_id,
                     "group_id": group_id,
-                    "content": self._extract_text_from_message(message_segments, raw_message) or self._convert_cq_faces_in_text(raw_message),
+                    "sender_nickname": sender_nickname,
+                    "content": text_content,
                     "raw_message": raw_message,
                     "message_type": message_type,  # "private" 或 "group"
-                    "mentions": data.get("mentions", []),
-                    "is_at": len(data.get("mentions", [])) > 0,
+                    "is_at": is_at,
+                    "is_at_all": is_at_all,
                     "reply_message_id": self._extract_reply_message_id(message_segments, raw_message),
                     "chat_key": chat_key,
                     "chat_seq": current_seq,
@@ -289,6 +316,35 @@ class NapcatClient:
                     task.add_done_callback(self._message_tasks.discard)
         except Exception as e:
             logger.error(f"处理 payload 出错: {str(e)}")
+
+    def _check_is_at(self, message_data: Any, raw_message: str, self_id: str) -> tuple[bool, bool]:
+        """检测消息中是否 @ 了机器人（OneBot v11 标准）
+
+        Returns:
+            (is_at, is_at_all):
+              is_at     — 是否直接 @ 了机器人 (data.qq == self_id)
+              is_at_all — 是否 @所有人 (data.qq == "all")
+        """
+        is_at = False
+        is_at_all = False
+        try:
+            if isinstance(message_data, list):
+                for item in message_data:
+                    if isinstance(item, dict) and item.get("type") == "at":
+                        qq = str(item.get("data", {}).get("qq", ""))
+                        if qq == self_id:
+                            is_at = True
+                        elif qq == "all":
+                            is_at_all = True
+
+            if raw_message and self_id:
+                if f"[CQ:at,qq={self_id}]" in raw_message:
+                    is_at = True
+            if raw_message and "[CQ:at,qq=all]" in raw_message:
+                is_at_all = True
+        except Exception:
+            pass
+        return is_at, is_at_all
 
     def _extract_images_from_message(self, message_data: Any, raw_message: str = "") -> list:
         """从消息中提取图像"""

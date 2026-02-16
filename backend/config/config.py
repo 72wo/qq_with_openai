@@ -37,7 +37,8 @@ class Config:
             "bot": {
                 "prompt": "你是一个有帮助的 AI 助手",
                 "auto_reply": True,
-                "group_only_at": True
+                "group_only_at": True,
+                "group_reply_at_all": False
             },
             "blacklist": {
                 "mode": "disabled",
@@ -56,7 +57,7 @@ class Config:
                 "emotion_conversion": True,
                 "simulate_typing_enabled": False,
                 "typing_multiplier": 1.0,
-                "typing_base_ms_per_char": 60,
+                "typing_base_ms_per_char": 120,
                 "context_enabled": True,
                 "context_max_messages": 40,
                 "context_compression_enabled": False,

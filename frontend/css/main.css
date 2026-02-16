@@ -1,0 +1,829 @@
+/* ===================================================
+   QQ Bot Console — Global Styles
+   Microsoft Azure Portal Layout
+   =================================================== */
+
+/* ---- Reset ---- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  font-family: var(--font-family);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+[v-cloak] { display: none !important; }
+#app { width: 100%; height: 100%; }
+
+/* ---- Scrollbar (thin, Azure style) ---- */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-text-tertiary); }
+
+/* ===================================================
+   TOP HEADER BAR (Azure blue strip)
+   =================================================== */
+.az-header {
+  height: var(--header-height);
+  background: var(--header-bg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.az-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.az-header__hamburger {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  transition: background .15s;
+}
+.az-header__hamburger:hover { background: rgba(255,255,255,.15); }
+
+.az-header__hamburger svg { width: 16px; height: 16px; fill: currentColor; }
+
+.az-header__brand {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -.2px;
+  user-select: none;
+}
+
+.az-header__right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.az-header__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: calc(var(--font-size-sm) + 1px);
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: .2px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  transition: background .2s, color .2s;
+}
+.az-header__status--ok {
+  color: #ffffff;
+  background: rgba(255,255,255,.12);
+}
+.az-header__status--err {
+  color: #ffffff;
+  background: none;
+}
+.az-header__status--loading {
+  color: #ffffff;
+  background: rgba(255,255,255,.08);
+}
+
+.az-header__dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.az-header__dot--ok {
+  background: #92c353;
+  animation: az-breathing-light 2s ease-in-out infinite;
+}
+.az-header__dot--err {
+  background: var(--color-text-tertiary);
+  animation: az-breathing-light 2s ease-in-out infinite;
+  transform: translateY(1px);
+}
+.az-header__dot--loading {
+  background: rgba(255,255,255,.5);
+  animation: az-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes az-breathing-light {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+
+@keyframes az-pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ===================================================
+   APP BODY (sidebar + content)
+   =================================================== */
+.az-body {
+  display: flex;
+  height: calc(100vh - var(--header-height));
+  overflow: hidden;
+}
+
+/* ===================================================
+   SIDEBAR
+   =================================================== */
+.az-sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width .25s cubic-bezier(.4,0,.2,1), min-width .25s cubic-bezier(.4,0,.2,1);
+  flex-shrink: 0;
+}
+
+.az-sidebar--collapsed {
+  width: 48px;
+  min-width: 48px;
+}
+
+.az-sidebar__section {
+  padding: 14px 0 6px 0;
+}
+
+.az-sidebar__section-title {
+  padding: 0 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--sidebar-section-color);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.az-sidebar--collapsed .az-sidebar__section-title {
+  opacity: 0;
+  height: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.az-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 36px;
+  cursor: pointer;
+  color: var(--sidebar-item-color);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  border-left: 3px solid transparent;
+  transition: background .12s, border-color .12s;
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+}
+
+.az-nav-item:hover {
+  background: var(--sidebar-hover);
+}
+
+.az-nav-item--active {
+  background: var(--sidebar-active-bg);
+  border-left-color: var(--sidebar-active-bar);
+  font-weight: 600;
+  color: var(--azure-blue);
+}
+
+.az-nav-item__icon {
+  width: 16px; height: 16px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.az-nav-item__icon svg {
+  width: 16px; height: 16px;
+  fill: currentColor;
+}
+
+.az-nav-item__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.az-sidebar--collapsed .az-nav-item__label {
+  display: none;
+}
+
+.az-sidebar--collapsed .az-nav-item {
+  padding: 0;
+  justify-content: center;
+}
+
+/* ===================================================
+   MAIN CONTENT AREA
+   =================================================== */
+.az-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+
+/* ---- Toolbar / Breadcrumb bar ---- */
+.az-toolbar {
+  height: 44px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  flex-shrink: 0;
+}
+
+.az-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.az-breadcrumb__home {
+  color: var(--azure-blue);
+  cursor: pointer;
+  font-weight: 500;
+}
+.az-breadcrumb__home:hover { text-decoration: underline; }
+
+.az-breadcrumb__sep {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.az-breadcrumb__current {
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.az-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- Page scroll area ---- */
+.az-page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ---- Page title ---- */
+.az-page-title {
+  font-size: var(--font-size-xxl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.az-page-title__icon {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.az-page-title__icon svg {
+  width: 24px; height: 24px;
+  fill: var(--azure-blue);
+}
+
+/* ===================================================
+   FLUENT CARD
+   =================================================== */
+.az-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-4);
+  margin-bottom: 16px;
+  transition: box-shadow .2s;
+}
+
+.az-card:hover {
+  box-shadow: var(--shadow-8);
+}
+
+.az-card__header {
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.az-card__title {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.az-card__body {
+  padding: 20px;
+}
+
+.az-card__body--flush {
+  padding: 0;
+}
+
+/* ===================================================
+   METRIC TILES (Dashboard style)
+   =================================================== */
+.az-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.az-metric {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: var(--shadow-4);
+  transition: box-shadow .2s, border-color .2s;
+}
+
+.az-metric:hover {
+  box-shadow: var(--shadow-8);
+  border-color: var(--color-border-strong);
+}
+
+.az-metric__label {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.az-metric__value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.az-metric__value--success { color: var(--color-success); }
+.az-metric__value--danger { color: var(--color-danger); }
+
+.az-metric__sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* ===================================================
+   STATUS BAR (connection banner)
+   =================================================== */
+.az-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  margin-bottom: 16px;
+  border: 1px solid;
+  animation: az-fadeSlideIn .3s ease;
+}
+
+.az-status-banner--ok {
+  background: var(--color-success-bg);
+  border-color: #a7e3a5;
+  color: #0b5a08;
+}
+
+.az-status-banner--err {
+  background: var(--color-danger-bg);
+  border-color: #f0aaaa;
+  color: #943030;
+}
+
+.az-status-banner__icon {
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+}
+
+.az-status-banner__icon svg {
+  width: 20px; height: 20px;
+}
+
+.az-status-banner__text { flex: 1; }
+.az-status-banner__title { font-weight: 600; font-size: var(--font-size-lg); }
+.az-status-banner__desc { font-size: 11px; margin-top: 3px; opacity: .8; }
+
+/* ===================================================
+   TERMINAL LOG
+   =================================================== */
+.az-terminal {
+  height: 440px;
+  overflow-y: auto;
+  background: var(--terminal-bg);
+  border: 1px solid var(--terminal-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  line-height: 1.7;
+}
+
+.az-terminal::-webkit-scrollbar-track { background: var(--terminal-bg); }
+.az-terminal::-webkit-scrollbar-thumb { background: var(--color-border-strong); border-radius: 3px; }
+
+/* Selection readability */
+.az-terminal ::selection {
+  background: var(--azure-blue);
+  color: #fff;
+}
+.az-terminal ::-moz-selection {
+  background: var(--azure-blue);
+  color: #fff;
+}
+
+.az-terminal__empty {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--color-text-tertiary);
+}
+
+.az-terminal__row {
+  padding: 6px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--terminal-text);
+  border-bottom: 1px solid var(--terminal-border);
+  transition: background .15s;
+}
+.az-terminal__row:nth-child(even) { background: var(--terminal-stripe); }
+.az-terminal__row:hover { background: var(--azure-blue-lighter); }
+
+.az-terminal__time {
+  color: var(--terminal-comment);
+  min-width: 152px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: var(--font-size-xs);
+}
+.az-terminal__role {
+  color: var(--terminal-keyword);
+  font-weight: 600;
+  min-width: 42px;
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+}
+.az-terminal__msg {
+  color: var(--terminal-text);
+  word-break: break-all;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+/* ===================================================
+   FORM STYLES (Azure dialog / blade style)
+   =================================================== */
+.az-form { max-width: 780px; }
+
+.az-form .el-form-item { margin-bottom: 20px; }
+
+.az-form .el-form-item__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.az-form .el-input__wrapper,
+.az-form .el-textarea__inner {
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface);
+  transition: border-color .15s;
+}
+.az-form .el-input__wrapper:hover,
+.az-form .el-textarea__inner:hover { border-color: var(--color-text-tertiary); }
+.az-form .el-input__wrapper.is-focus,
+.az-form .el-textarea__inner:focus { border-color: var(--azure-blue) !important; border-width: 2px; }
+
+.az-form .el-input__inner,
+.az-form .el-textarea__inner { color: var(--color-text-primary); font-size: var(--font-size-md); }
+
+.az-form .el-input-number,
+.az-form .el-input-number--small { width: 130px !important; height: 32px !important; }
+.az-form .el-input-number .el-input__wrapper {
+  border: 1px solid var(--color-border-strong) !important;
+  box-shadow: none !important;
+  border-radius: var(--radius-sm) !important;
+  height: 32px !important;
+}
+/* 更小的专用宽度：打字速度倍率 */
+.az-form .typing-multiplier-input { width: 96px !important; }
+.az-form .el-input-number .el-input__inner { height: 30px !important; line-height: 30px !important; }
+
+/* ---- Select ---- */
+.az-form .el-select .el-input__wrapper { border-radius: var(--radius-sm) !important; }
+
+/* ---- Switch (Azure toggle) ---- */
+.el-switch { height: 20px; }
+.el-switch__core { border-radius: 10px; border: 1px solid var(--color-border-strong); background: var(--color-text-disabled); }
+.el-switch.is-checked .el-switch__core { background: var(--azure-blue); border-color: var(--azure-blue); }
+
+/* ---- Helper text (inline on right) ---- */
+.az-helper {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-left: 12px;
+  line-height: 32px;
+  white-space: nowrap;
+}
+
+/* Make form-item content flex for inline helpers */
+.az-form .el-form-item__content {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+/* ---- Inline form row (Label | Control | Tips) ---- */
+.az-form-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 48px;
+}
+.az-form-inline .az-form-inline__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 340px;
+}
+.az-form-inline__label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  min-width: 140px;
+  flex-shrink: 0;
+}
+.az-form-inline__control {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+/* ---- Divider ---- */
+.az-section-title {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  padding-bottom: 8px;
+  margin: 28px 0 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+/* ---- Code inline ---- */
+.az-code {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+}
+
+/* ===================================================
+   BUTTON OVERRIDES
+   =================================================== */
+.el-button {
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  padding: 5px 16px;
+  height: 32px;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+.el-button--primary { background: var(--azure-blue); border-color: var(--azure-blue); color: #fff; }
+.el-button--primary:hover { background: var(--azure-blue-hover); border-color: var(--azure-blue-hover); }
+.el-button--primary:active { background: var(--azure-blue-active); border-color: var(--azure-blue-active); }
+
+.el-button--default { background: #fff; border: 1px solid var(--color-border-strong); color: var(--color-text-primary); }
+.el-button--default:hover { background: var(--color-bg-alt); border-color: var(--color-text-tertiary); color: var(--azure-blue); }
+
+.el-button--danger { background: #fff; border: 1px solid var(--color-danger); color: var(--color-danger); }
+.el-button--danger:hover { background: var(--color-danger); color: #fff; }
+
+.el-button.is-loading { opacity: .65; }
+.el-button:focus, .el-button:hover { box-shadow: none !important; }
+.el-button--primary, .el-button--success, .el-button--warning, .el-button--danger { background-image: none !important; }
+
+/* ===================================================
+   TABLE
+   =================================================== */
+.el-table { border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+.el-table th.el-table__cell { background: var(--color-bg-alt); color: var(--color-text-primary); font-weight: 600; font-size: var(--font-size-sm); }
+.el-table td.el-table__cell { font-size: var(--font-size-sm); color: var(--color-text-primary); }
+.el-table__body tr:hover > td { background: var(--azure-blue-lighter) !important; }
+
+/* ---- Tag ---- */
+.el-tag { border-radius: var(--radius-sm); font-size: var(--font-size-xs); }
+.el-tag--primary { background: var(--azure-blue-light); border-color: #a0c8ef; color: var(--azure-blue); }
+.el-tag--warning { background: var(--color-warning-bg); border-color: #e6d06c; color: #5c5800; }
+
+/* ---- Card override ---- */
+.el-card { border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-4) !important; }
+.el-card__header { padding: 14px 20px; border-bottom: 1px solid var(--color-border); background: var(--color-bg-alt); }
+
+/* ---- Descriptions ---- */
+.el-descriptions { border: 1px solid var(--color-border); }
+.el-descriptions__label { background: var(--color-bg-alt); font-weight: 600; font-size: var(--font-size-sm); color: var(--color-text-primary); }
+.el-descriptions__content { font-size: var(--font-size-sm); color: var(--color-text-primary); }
+.el-descriptions--border .el-descriptions__cell { border-color: var(--color-border); padding: 10px 16px; }
+
+/* ---- Alert override ---- */
+.el-alert { border-radius: var(--radius-md); }
+
+/* ---- Message ---- */
+.el-message { border-radius: var(--radius-sm); font-size: var(--font-size-sm); box-shadow: var(--shadow-8); }
+
+/* ===================================================
+   TRANSITIONS
+   =================================================== */
+.az-fade-enter-active,
+.az-fade-leave-active {
+  transition: opacity .2s ease, transform .2s ease;
+}
+.az-fade-enter-from {
+  opacity: 0; transform: translateY(8px);
+}
+.az-fade-leave-to {
+  opacity: 0; transform: translateY(-4px);
+}
+
+@keyframes az-fadeSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===================================================
+   SKELETON LOADER
+   =================================================== */
+.az-skeleton {
+  padding: 24px;
+}
+
+.az-skeleton__block {
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-bg-alt) 50%, var(--color-border) 75%);
+  background-size: 200% 100%;
+  animation: az-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+  height: 14px;
+  margin-bottom: 14px;
+}
+
+@keyframes az-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ===================================================
+   LOADING SPINNER
+   =================================================== */
+.az-spinner {
+  display: flex; align-items: center; justify-content: center;
+  padding: 60px 0;
+}
+.az-spinner::after {
+  content: "";
+  width: 28px; height: 28px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--azure-blue);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===================================================
+   SAVE BAR (bottom)
+   =================================================== */
+.az-save-bar {
+  height: 48px;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 24px;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ===================================================
+   ADD-ROW (for lists)
+   =================================================== */
+.az-add-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.az-add-row .el-input { flex: 1; }
+
+/* ---- Connection test ---- */
+.az-test-result {
+  margin-top: 8px;
+  font-size: var(--font-size-xs);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  display: none;
+}
+.az-test-result.show { display: block; animation: az-fadeSlideIn .25s ease; }
+.az-test-result.success { background: var(--color-success-bg); color: var(--color-success); }
+.az-test-result.error { background: var(--color-danger-bg); color: var(--color-danger); }
+
+/* ---- Slider helper ---- */
+.az-slider-row {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+}
+.az-slider-row .el-slider { flex: 1; margin: 0; }
+
+/* ---- Form item block variant (slider etc.) ---- */
+.az-form-item--block .el-form-item__content {
+  flex-wrap: wrap !important;
+}
+.az-form-item--block .az-helper {
+  margin-left: 0;
+  margin-top: 4px;
+  display: block;
+  width: 100%;
+  line-height: 1.4;
+}
+
+/* ---- Sub-tabs (for lists page) ---- */
+.az-subtabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 20px;
+}
+.az-subtab {
+  padding: 8px 20px;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color .15s, border-color .15s;
+  user-select: none;
+}
+.az-subtab:hover { color: var(--color-text-primary); }
+.az-subtab--active {
+  color: var(--azure-blue);
+  border-bottom-color: var(--azure-blue);
+}
+
+/* ===================================================
+   RESPONSIVE
+   =================================================== */
+@media (max-width: 768px) {
+  .az-sidebar { display: none; }
+  .az-page { padding: 16px; }
+  .az-toolbar { padding: 0 16px; }
+  .az-metrics { grid-template-columns: 1fr; }
+}

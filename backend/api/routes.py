@@ -50,6 +50,18 @@ async def save_config(config_update: ConfigUpdate):
         if config_update.advanced:
             config_dict["advanced"].update(config_update.advanced)
 
+        # --- 联动约束 ---
+        # 1. 视觉模型未启用时，强制关闭图像处理
+        if not config_dict.get("vision", {}).get("enabled", False):
+            config_dict.setdefault("features", {})["image_processing"] = False
+
+        # 2. 黑白名单互斥：如果两个都启用，以最后提交的为准（另一个强制 disabled）
+        bl_mode = config_dict.get("blacklist", {}).get("mode", "disabled")
+        wl_mode = config_dict.get("whitelist", {}).get("mode", "disabled")
+        if bl_mode != "disabled" and wl_mode != "disabled":
+            # 两者都启用时，白名单优先，黑名单强制关闭
+            config_dict["blacklist"]["mode"] = "disabled"
+
         config.update_config(config_dict)
 
         # 重新初始化 OpenAI 服务（包括视觉模型）
@@ -118,21 +130,14 @@ async def get_status() -> Dict[str, Any]:
         napcat_error = None
         napcat_url = ""
         if napcat_client:
-            websocket = getattr(napcat_client, "websocket", None)
-            ws_closed = getattr(websocket, "closed", False) if websocket else True
-            napcat_connected = bool(napcat_client.is_connected and websocket and not ws_closed)
+            # 本项目作为 WebSocket 服务器，NapCat 作为客户端连接
+            # 直接使用 is_connected 标志判断连接状态
+            napcat_connected = bool(napcat_client.is_connected)
             napcat_error = getattr(napcat_client, "last_error", None)
             napcat_url = napcat_client.ws_url
 
-        openai_configured = False
-        if config:
-            apikey = config.get("openai.apikey", "")
-            baseurl = config.get("openai.baseurl", "")
-            openai_configured = bool(apikey and baseurl)
-
         return {
             "napcat_connected": napcat_connected,
-            "openai_connected": openai_configured,
             "status": "running",
             "napcat_url": napcat_url,
             "napcat_error": napcat_error,

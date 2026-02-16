@@ -38,7 +38,6 @@ class ConfigResponse(BaseModel):
 class BotStatus(BaseModel):
     """机器人状态模型"""
     napcat_connected: bool = False
-    openai_connected: bool = False
     last_update: datetime = None
     recent_messages: Optional[List[Message]] = None
     error_logs: Optional[List[str]] = None
