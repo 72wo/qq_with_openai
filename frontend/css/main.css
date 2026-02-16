@@ -827,3 +827,87 @@ html, body {
   .az-toolbar { padding: 0 16px; }
   .az-metrics { grid-template-columns: 1fr; }
 }
+
+/* ===================================================
+   LOGIN PAGE
+   =================================================== */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg);
+}
+
+.login-card {
+  width: 380px;
+  max-width: 90vw;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-16);
+  padding: 40px 32px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-card__bar {
+  height: 4px;
+  background: var(--azure-blue);
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.login-card__header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.login-card__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.login-card__title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.login-card__subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.login-card__form {
+  margin-bottom: 12px;
+}
+
+/* ===================================================
+   HEADER LOGOUT BUTTON
+   =================================================== */
+.az-header__logout {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  margin-left: 8px;
+  transition: background .15s;
+}
+.az-header__logout:hover {
+  background: rgba(255,255,255,.15);
+}
+.az-header__logout svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+}

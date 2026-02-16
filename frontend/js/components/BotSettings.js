@@ -129,9 +129,9 @@ export default {
                 </el-form-item>
               </el-col>
               <el-col :span="12">
-                <el-form-item label="单条消息最大字符">
+                <el-form-item label="单条消息建议长度">
                   <el-input-number v-model="config.features.context_message_max_chars" :min="0" :max="5000" controls-position="right"></el-input-number>
-                  <span class="az-helper">0 表示不限制</span>
+                  <span class="az-helper">建议 AI 回复的字符数，0 表示不限制，不会截断消息</span>
                 </el-form-item>
               </el-col>
             </el-row>

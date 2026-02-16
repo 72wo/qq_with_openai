@@ -13,7 +13,11 @@ from contextlib import asynccontextmanager
 
 from .config import Config
 from .services import NapcatClient, MessageHandler
+from .auth import AuthManager
 from .api import routes
+from .api import auth_routes
+from .api import security_routes
+from .api import friend_routes
 
 # 配置日志
 logging.basicConfig(
@@ -28,6 +32,9 @@ app_state = {
     "napcat_client": None,
     "message_handler": None,
     "napcat_task": None,
+    "auth_manager": None,
+    "ip_ban_manager": None,
+    "friend_verification": None,
 }
 
 
@@ -105,6 +112,21 @@ async def lifespan(app: FastAPI):
     log_level = app_state["config"].get("advanced.log_level", "INFO")
     logging.getLogger().setLevel(getattr(logging, log_level, logging.INFO))
 
+    # 初始化认证管理器
+    auth_path = os.path.join(os.path.dirname(__file__), "..", "config", "auth.json")
+    app_state["auth_manager"] = AuthManager(auth_path)
+    app_state["auth_manager"].initialize()
+
+    # 初始化 IP 封禁管理器
+    from .security import IPBanManager
+    ip_bans_path = os.path.join(os.path.dirname(__file__), "..", "config", "ip_bans.json")
+    app_state["ip_ban_manager"] = IPBanManager(ip_bans_path)
+
+    # 初始化好友验证服务
+    from .services.friend_verification import FriendVerificationService
+    friend_secret = app_state["auth_manager"].friend_verification_secret
+    app_state["friend_verification"] = FriendVerificationService(friend_secret)
+
     # 初始化 napcat 客户端
     napcat_url = app_state["config"].get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
     napcat_token = app_state["config"].get("advanced.napcat_token", "")
@@ -116,10 +138,27 @@ async def lifespan(app: FastAPI):
     # 设置消息处理回调
     app_state["napcat_client"].set_message_handler(app_state["message_handler"].handle_message)
 
+    # 设置好友验证回调
+    app_state["napcat_client"].set_friend_verification_service(app_state["friend_verification"])
+
     # 纯服务端模式：不主动发起连接，只等待 NapCat 反向连接
     logger.info("NapCat 服务端模式已启动，等待反向 WebSocket 连接...")
     # 确保 task 初始化为 None，防止后续逻辑报错
     app_state["napcat_task"] = None
+
+    # 启动 tracker 定期清理任务（每 30 分钟清理一次过期 IP 追踪数据）
+    async def _periodic_cleanup():
+        while True:
+            await asyncio.sleep(1800)
+            try:
+                ban_manager = app_state.get("ip_ban_manager")
+                if ban_manager:
+                    ban_manager.cleanup_trackers()
+                    logger.debug("IP tracker 定期清理完成")
+            except Exception as e:
+                logger.error(f"IP tracker 定期清理失败: {e}")
+
+    app_state["cleanup_task"] = asyncio.create_task(_periodic_cleanup())
 
     logger.info("应用启动完成")
 
@@ -127,10 +166,15 @@ async def lifespan(app: FastAPI):
 
     # 关闭事件
     logger.info("应用关闭中...")
+    if app_state.get("cleanup_task"):
+        app_state["cleanup_task"].cancel()
     if app_state["napcat_task"]:
         app_state["napcat_task"].cancel()
     if app_state["napcat_client"]:
         await app_state["napcat_client"].disconnect()
+    # 持久化 IP 封禁数据
+    if app_state.get("ip_ban_manager"):
+        app_state["ip_ban_manager"].save()
     logger.info("应用已关闭")
 
 
@@ -147,7 +191,14 @@ def get_message_handler() -> MessageHandler:
     return app_state["message_handler"]
 
 
+# IP 封禁中间件（必须在路由之前注册）
+from .security.ip_ban_middleware import create_ip_ban_middleware
+create_ip_ban_middleware(app)
+
 # 包含 API 路由
+app.include_router(auth_routes.router)
+app.include_router(security_routes.router)
+app.include_router(friend_routes.router)
 app.include_router(routes.router)
 
 
@@ -167,14 +218,20 @@ async def root():
     return {"message": "QQ 机器人 OpenAI 集成系统"}
 
 
+# Token 页面路由（公开页面）
+@app.get("/token")
+async def token_page():
+    """返回好友验证 Token 页面"""
+    html_file = frontend_path / "token.html"
+    if html_file.exists():
+        return FileResponse(html_file)
+    return {"message": "页面不存在"}
+
+
 @app.get("/health")
 async def health_check():
     """健康检查"""
-    return {
-        "status": "healthy",
-        "napcat_connected": app_state["napcat_client"].is_connected if app_state["napcat_client"] else False,
-        "config_loaded": app_state["config"] is not None
-    }
+    return {"status": "healthy"}
 
 
 @app.websocket("/ws/napcat")

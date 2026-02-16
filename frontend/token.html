@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QQ Bot - 好友验证</title>
+
+    <!-- Element Plus -->
+    <link rel="stylesheet" href="//unpkg.com/element-plus/dist/index.css" />
+
+    <!-- Project Styles -->
+    <link rel="stylesheet" href="/static/css/variables.css">
+    <link rel="stylesheet" href="/static/css/main.css">
+
+    <!-- Vendor Scripts -->
+    <script src="//unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="//unpkg.com/element-plus"></script>
+    <script src="//unpkg.com/@element-plus/icons-vue"></script>
+    <script src="//unpkg.com/axios/dist/axios.min.js"></script>
+
+    <style>
+        .token-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-bg);
+        }
+
+        .token-card {
+            width: 420px;
+            max-width: 90vw;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-16);
+            padding: 40px 32px;
+        }
+
+        .token-card__header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .token-card__title {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 8px;
+        }
+
+        .token-card__desc {
+            font-size: 13px;
+            color: var(--color-text-secondary);
+            line-height: 1.5;
+        }
+
+        .token-result {
+            margin-top: 20px;
+            padding: 16px;
+            background: var(--color-bg-alt);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+        }
+
+        .token-result__label {
+            font-size: 12px;
+            color: var(--color-text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .token-result__value {
+            font-family: var(--font-family-mono);
+            font-size: 14px;
+            color: var(--azure-blue);
+            word-break: break-all;
+            padding: 8px;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            user-select: all;
+        }
+
+        .token-result__hint {
+            font-size: 12px;
+            color: var(--color-text-tertiary);
+            margin-top: 8px;
+        }
+
+        .token-bar {
+            height: 4px;
+            background: var(--azure-blue);
+            border-radius: 2px 2px 0 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+        }
+
+        .token-card {
+            position: relative;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="token-app" v-cloak>
+        <div class="token-page">
+            <div class="token-card">
+                <div class="token-bar"></div>
+                <div class="token-card__header">
+                    <div class="token-card__title">好友验证</div>
+                    <div class="token-card__desc">输入你的 QQ 号获取验证令牌，复制到好友请求的验证消息中即可自动通过</div>
+                </div>
+
+                <el-form label-position="top">
+                    <el-form-item label="你的 QQ 号">
+                        <el-input v-model="qqNumber" placeholder="输入 5-12 位 QQ 号" maxlength="12"
+                            @keyup.enter="generate" />
+                    </el-form-item>
+                    <el-button type="primary" style="width:100%" :loading="loading" @click="generate">生成验证令牌</el-button>
+                </el-form>
+
+                <div class="token-result" v-if="token">
+                    <div class="token-result__label">你的验证令牌</div>
+                    <div class="token-result__value" @click="copyToken" :title="'点击复制'">{{ token }}</div>
+                    <div class="token-result__hint">点击复制，然后粘贴到好友请求的验证消息中</div>
+                </div>
+
+                <div v-if="error" style="margin-top:16px;">
+                    <el-alert :title="error" type="error" show-icon :closable="false" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/static/js/token-app.js"></script>
+</body>
+
+</html>

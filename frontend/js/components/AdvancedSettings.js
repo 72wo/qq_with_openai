@@ -1,6 +1,8 @@
 /**
  * AdvancedSettings.js — System advanced settings
  */
+const { computed } = Vue;
+
 export default {
   name: 'AdvancedSettings',
   props: ['config', 'icons'],
@@ -17,6 +19,10 @@ export default {
         </div>
         <div class="az-card__body">
           <el-form :model="config.advanced" label-width="160px" class="az-form">
+            <el-form-item label="WebSocket URL">
+              <el-input :value="napCatWebSocketUrl" readonly style="max-width:280px;"></el-input>
+              <span class="az-helper">Napcat WebSocket 客户端连接地址，需在 napcat 中配置</span>
+            </el-form-item>
             <el-form-item label="NapCat Token">
               <el-input v-model="config.advanced.napcat_token" type="password" show-password placeholder="与 NapCat 配置保持一致" style="max-width:280px;"></el-input>
               <span class="az-helper">用于 WebSocket 鉴权，需与 NapCat 端一致</span>
@@ -52,5 +58,11 @@ export default {
       </div>
     </div>
   `,
-  setup() { return {}; }
+  setup(props) { 
+    const napCatWebSocketUrl = computed(() => {
+      const port = props.config.advanced.service_port || 5000;
+      return `ws://localhost:${port}/ws/napcat`;
+    });
+    return { napCatWebSocketUrl }; 
+  }
 };

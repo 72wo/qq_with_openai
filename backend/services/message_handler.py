@@ -113,13 +113,14 @@ class MessageHandler:
                     # 群聊仅@时回复 关闭 → 群聊不回复任何消息
                     logger.debug(f"群聊回复已关闭，跳过: group={group_id}, user={user_id}")
                     return
-                # 群聊仅@时回复 开启 → 检查是否被直接@
-                if not is_at:
-                    # 未被直接@，检查是否@所有人且配置允许
+                # 群聊仅@时回复 开启 → 检查是否被直接@或引用了消息
+                has_reply = bool(reply_message_id)
+                if not is_at and not has_reply:
+                    # 未被直接@也没有引用消息，检查是否@所有人且配置允许
                     if is_at_all and self.config.get("bot.group_reply_at_all", False):
                         pass  # @所有人且允许回复，放行
                     else:
-                        logger.debug(f"群聊未被@，跳过: group={group_id}, user={user_id}")
+                        logger.debug(f"群聊未被@且无引用，跳过: group={group_id}, user={user_id}")
                         return
 
             # 黑白名单检查
@@ -306,11 +307,18 @@ class MessageHandler:
             elif is_at_all:
                 parts.append(f"[你被 @全体成员 提及，发送者是 {name}]")
 
-        # 引用消息
+        # 引用消息（文本 + 图片）
         if quoted_message:
             qt = (quoted_message.get("content") or quoted_message.get("raw_message") or "")[:100]
             if qt:
                 parts.append(f"[引用]{qt}")
+            # 处理引用消息中的图片（与私聊逻辑一致）
+            quoted_images = quoted_message.get("images", [])
+            if quoted_images and self.config.get("vision.enabled", False):
+                system_prompt = self.config.get("bot.prompt", "")
+                quoted_img_desc = await self._analyze_images(quoted_images, system_prompt)
+                if quoted_img_desc:
+                    parts.append(f"[引用图片]{quoted_img_desc}")
 
         # 图片分析 - 仅在视觉模型启用时处理
         # 如果视觉模型未启用，完全忽略图片（不解析也不回复）
@@ -337,10 +345,6 @@ class MessageHandler:
         """
         if not chat_key or not content:
             return
-        # 截断过长的单条消息
-        max_chars = int(self.config.get("features.context_message_max_chars", 0) or 0)
-        if max_chars > 0 and len(content) > max_chars:
-            content = content[:max_chars] + "…"
 
         if chat_key not in self._chat_history:
             self._chat_history[chat_key] = deque()
@@ -441,8 +445,12 @@ class MessageHandler:
 
         try:
             base_prompt = self.config.get("bot.prompt", "你是一个有帮助的 AI 助手")
-            # 添加回复规则
-            system_prompt = base_prompt
+            # 添加回复长度建议
+            suggested_len = int(self.config.get("features.context_message_max_chars", 0) or 0)
+            if suggested_len > 0:
+                system_prompt = base_prompt + f"\n请将回复控制在约{suggested_len}个字符左右。"
+            else:
+                system_prompt = base_prompt
 
             # 检查是否启用上下文
             context_enabled = self.config.get("features.context_enabled", True)

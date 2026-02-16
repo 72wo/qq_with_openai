@@ -25,7 +25,8 @@ class Config:
                 "apikey": "",
                 "model": "gpt-4",
                 "max_tokens": 500,
-                "reply_timeout_sec": 60
+                "reply_timeout_sec": 60,
+                "reply_avg_length": 50
             },
             "vision": {
                 "enabled": False,
@@ -66,6 +67,7 @@ class Config:
                 "context_message_max_chars": 80
             },
             "advanced": {
+                "napcat_url": "ws://localhost:8080/ws/napcat",
                 "napcat_token": "",
                 "service_port": 5000,
                 "log_level": "INFO",

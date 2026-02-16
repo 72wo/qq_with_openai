@@ -1,11 +1,11 @@
 """API 路由"""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from typing import Dict, Any
 import logging
-from ..models import ConfigResponse, ConfigUpdate, TestConnectionResponse
+from ..models import ConfigResponse, ConfigUpdate, TestConnectionResponse, TestConnectionRequest
 from ..services import OpenAIService, NapcatClient
-import logging
+from ..auth.dependencies import require_auth
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api", tags=["API"])
 
 
 @router.get("/config")
-async def get_config() -> ConfigResponse:
+async def get_config(auth: dict = Depends(require_auth)) -> ConfigResponse:
     """获取配置"""
     try:
         from ..app import app_state
@@ -25,7 +25,7 @@ async def get_config() -> ConfigResponse:
 
 
 @router.post("/config")
-async def save_config(config_update: ConfigUpdate):
+async def save_config(config_update: ConfigUpdate, auth: dict = Depends(require_auth)):
     """保存配置"""
     try:
         from ..app import app_state
@@ -34,21 +34,21 @@ async def save_config(config_update: ConfigUpdate):
         old_napcat_token = config.get("advanced.napcat_token", "")
         config_dict = config.get_all()
 
-        # 更新配置
+        # 更新配置（使用 model_dump 排除 None 字段）
         if config_update.openai:
-            config_dict["openai"].update(config_update.openai)
+            config_dict["openai"].update(config_update.openai.model_dump(exclude_none=True))
         if config_update.vision:
-            config_dict["vision"].update(config_update.vision)
+            config_dict["vision"].update(config_update.vision.model_dump(exclude_none=True))
         if config_update.bot:
-            config_dict["bot"].update(config_update.bot)
+            config_dict["bot"].update(config_update.bot.model_dump(exclude_none=True))
         if config_update.blacklist:
-            config_dict["blacklist"].update(config_update.blacklist)
+            config_dict["blacklist"].update(config_update.blacklist.model_dump(exclude_none=True))
         if config_update.whitelist:
-            config_dict["whitelist"].update(config_update.whitelist)
+            config_dict["whitelist"].update(config_update.whitelist.model_dump(exclude_none=True))
         if config_update.features:
-            config_dict["features"].update(config_update.features)
+            config_dict["features"].update(config_update.features.model_dump(exclude_none=True))
         if config_update.advanced:
-            config_dict["advanced"].update(config_update.advanced)
+            config_dict["advanced"].update(config_update.advanced.model_dump(exclude_none=True))
 
         # --- 联动约束 ---
         # 1. 视觉模型未启用时，强制关闭图像处理
@@ -99,17 +99,10 @@ async def save_config(config_update: ConfigUpdate):
 
 
 @router.post("/test-connection")
-async def test_connection(request_data: Dict[str, Any]) -> TestConnectionResponse:
+async def test_connection(request_data: TestConnectionRequest, auth: dict = Depends(require_auth)) -> TestConnectionResponse:
     """测试 OpenAI 连接"""
     try:
-        baseurl = request_data.get("baseurl", "https://api.openai.com/v1")
-        apikey = request_data.get("apikey")
-        model = request_data.get("model", "gpt-4")
-
-        if not apikey:
-            return TestConnectionResponse(success=False, message="API Key 不能为空")
-
-        openai_service = OpenAIService(baseurl, apikey, model)
+        openai_service = OpenAIService(request_data.baseurl, request_data.apikey, request_data.model)
         success, message = await openai_service.test_connection()
 
         return TestConnectionResponse(success=success, message=message)
@@ -119,7 +112,7 @@ async def test_connection(request_data: Dict[str, Any]) -> TestConnectionRespons
 
 
 @router.get("/status")
-async def get_status() -> Dict[str, Any]:
+async def get_status(auth: dict = Depends(require_auth)) -> Dict[str, Any]:
     """获取机器人状态"""
     try:
         from ..app import app_state, get_recent_messages
@@ -150,7 +143,7 @@ async def get_status() -> Dict[str, Any]:
 
 
 @router.post("/logs/clear")
-async def clear_logs() -> Dict[str, Any]:
+async def clear_logs(auth: dict = Depends(require_auth)) -> Dict[str, Any]:
     """清空消息日志"""
     try:
         from ..app import clear_recent_messages

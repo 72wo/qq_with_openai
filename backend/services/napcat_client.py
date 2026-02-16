@@ -254,6 +254,11 @@ class NapcatClient:
                 # 心跳，不处理
                 return
 
+            # 好友请求事件
+            if data.get("post_type") == "request" and data.get("request_type") == "friend":
+                asyncio.create_task(self._handle_friend_request(data))
+                return
+
             if data.get("post_type") == "message":
                 message_type = data.get("message_type")
                 group_id = data.get("group_id")
@@ -664,6 +669,40 @@ class NapcatClient:
     def set_message_handler(self, handler: Callable):
         """设置消息处理器"""
         self.message_handler = handler
+
+    def set_friend_verification_service(self, service) -> None:
+        """设置好友验证服务"""
+        self._friend_verification = service
+
+    async def _handle_friend_request(self, data: Dict[str, Any]) -> None:
+        """处理好友请求事件"""
+        service = getattr(self, "_friend_verification", None)
+        if not service:
+            logger.debug("好友验证服务未设置，忽略好友请求")
+            return
+
+        user_id = str(data.get("user_id", ""))
+        comment = (data.get("comment") or "").strip()
+        flag = data.get("flag", "")
+
+        if not user_id or not flag:
+            return
+
+        logger.info(f"收到好友请求: QQ={user_id}, 验证消息={comment!r}")
+
+        if service.verify_token(user_id, comment):
+            logger.info(f"好友验证通过: QQ={user_id}")
+            await self.call_action("set_friend_add_request", params={
+                "flag": flag,
+                "approve": True,
+            })
+        else:
+            logger.info(f"好友验证失败: QQ={user_id}, token 无效")
+            await self.call_action("set_friend_add_request", params={
+                "flag": flag,
+                "approve": False,
+                "reason": "验证令牌无效或已过期",
+            })
 
     async def run(self):
         """运行客户端（自动重连）"""

@@ -1,5 +1,5 @@
 /**
- * OpenAIConfig.js — OpenAI configuration (Azure blade style)
+ * OpenAIConfig.js — Chat model configuration (Azure blade style)
  */
 import api from '/static/js/api.js';
 const { ref } = Vue;
@@ -11,7 +11,7 @@ export default {
     <div>
       <div class="az-page-title">
         <span class="az-page-title__icon" v-html="icons.openai"></span>
-        OpenAI 配置
+        聊天模型配置
       </div>
 
       <div class="az-card">
@@ -76,6 +76,7 @@ export default {
   setup(props) {
     const testing = ref(false);
     const result = ref({ show: false, success: false, message: '' });
+    const { ElMessage } = ElementPlus;
 
     const handleTest = async () => {
       testing.value = true;
@@ -84,11 +85,19 @@ export default {
         const start = Date.now();
         const d = await api.testConnection({ baseurl: props.config.openai.baseurl, apikey: props.config.openai.apikey, model: props.config.openai.model });
         const ms = Date.now() - start;
-        result.value = d.success
-          ? { show:true, success:true, message:'连接成功，延迟 ' + ms + 'ms' }
-          : { show:true, success:false, message:'连接失败: ' + d.message };
+        if (d.success) {
+          // 成功用 toast 提示，避免按钮下沉
+          ElMessage.success('连接成功，延迟 ' + ms + 'ms');
+          result.value = { show: false, success: true, message: '' };
+        } else {
+          // 失败使用 toast 提示，隐藏内联错误显示
+          ElMessage.error('连接失败: ' + d.message);
+          result.value = { show: false, success: false, message: '' };
+        }
       } catch (e) {
-        result.value = { show:true, success:false, message:'连接失败: ' + (e.response?.data?.message || e.message || '网络错误') };
+        const errMsg = e.response?.data?.message || e.message || '网络错误';
+        ElMessage.error('连接失败: ' + errMsg);
+        result.value = { show: false, success: false, message: '' };
       } finally { testing.value = false; }
     };
 

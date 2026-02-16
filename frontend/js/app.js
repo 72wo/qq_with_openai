@@ -1,14 +1,18 @@
 /**
  * app.js — Vue Root Instance
  * Azure Portal layout: Header + Sidebar + Content
+ * 含登录门控 + 新导航结构
  */
-import api from '/static/js/api.js';
+import api, { onUnauthorized } from '/static/js/api.js';
+import LoginPage        from '/static/js/components/LoginPage.js';
 import StatusPanel      from '/static/js/components/StatusPanel.js';
 import OpenAIConfig     from '/static/js/components/OpenAIConfig.js';
 import VisionConfig     from '/static/js/components/VisionConfig.js';
 import BotSettings      from '/static/js/components/BotSettings.js';
 import ListManager      from '/static/js/components/ListManager.js';
 import AdvancedSettings from '/static/js/components/AdvancedSettings.js';
+import SecurityPanel    from '/static/js/components/SecurityPanel.js';
+import SecuritySettings from '/static/js/components/SecuritySettings.js';
 
 const { createApp, ref, computed, onMounted, reactive } = Vue;
 const { ElMessage } = ElementPlus;
@@ -22,22 +26,31 @@ const ICONS = {
   settings:  `<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`,
   list:      `<svg viewBox="0 0 16 16"><rect x="1" y="2" width="3" height="3" rx=".5" fill="currentColor"/><rect x="6" y="2.5" width="9" height="2" rx=".5" fill="currentColor"/><rect x="1" y="6.5" width="3" height="3" rx=".5" fill="currentColor"/><rect x="6" y="7" width="9" height="2" rx=".5" fill="currentColor"/><rect x="1" y="11" width="3" height="3" rx=".5" fill="currentColor"/><rect x="6" y="11.5" width="9" height="2" rx=".5" fill="currentColor"/></svg>`,
   advanced:  `<svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
+  shield:    `<svg viewBox="0 0 16 16"><path d="M8 1L2 4v4c0 3.5 2.6 6.3 6 7 3.4-.7 6-3.5 6-7V4L8 1z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 8l1.5 1.5L10 6.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  lock:      `<svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`,
+  logout:    `<svg viewBox="0 0 16 16"><path d="M6 2h7v12H6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M10 8H1M3 5.5L.5 8 3 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   checkCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#107c10"/><path d="M6 10l2.5 3L14 7" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   errorCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#d13438"/><path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
 };
 
 const NAV_ITEMS = [
   { key: 'status',    label: '概览',       icon: 'dashboard', section: '监控' },
-  { key: 'openai',    label: 'OpenAI',     icon: 'openai',    section: '配置' },
+  { key: 'openai',    label: '聊天模型',   icon: 'openai',    section: '配置' },
   { key: 'vision',    label: '视觉模型',   icon: 'eye',       section: '配置' },
   { key: 'customize', label: '自定义设置', icon: 'settings',  section: '配置' },
   { key: 'lists',     label: '黑白名单',   icon: 'list',      section: '安全' },
+  { key: 'ipban',     label: 'IP 安全',    icon: 'shield',    section: '安全' },
+  { key: 'security',  label: '密码管理',   icon: 'lock',      section: '安全' },
   { key: 'advanced',  label: '高级设置',   icon: 'advanced',  section: '系统' },
 ];
 
 const App = {
   template: `
-    <div style="display:flex;flex-direction:column;height:100vh;">
+    <!-- ======== LOGIN PAGE ======== -->
+    <login-page v-if="!authenticated" :on-login="onLoginSuccess" />
+
+    <!-- ======== MAIN APP ======== -->
+    <div v-else style="display:flex;flex-direction:column;height:100vh;">
 
       <!-- ======== HEADER ======== -->
       <div class="az-header">
@@ -57,6 +70,9 @@ const App = {
               'az-header__dot--loading': loading
             }"></span>
             {{ loading ? '加载中...' : (status.napcat_connected ? 'NapCat 在线' : 'NapCat 离线') }}
+          </div>
+          <div class="az-header__logout" @click="logout" title="退出登录">
+            <span v-html="icons.logout"></span>
           </div>
         </div>
       </div>
@@ -131,6 +147,7 @@ const App = {
   `,
 
   setup() {
+    const authenticated    = ref(false);
     const activeTab        = ref('status');
     const sidebarCollapsed = ref(false);
     const loading          = ref(true);
@@ -149,6 +166,30 @@ const App = {
 
     const status = ref({ napcat_connected:false, napcat_connecting:false, napcat_url:'', napcat_error:'' });
 
+    // ---- Auth check ----
+    const checkAuth = async () => {
+      const res = await api.checkAuth();
+      authenticated.value = !!res.authenticated;
+      return authenticated.value;
+    };
+
+    const onLoginSuccess = async () => {
+      authenticated.value = true;
+      loading.value = true;
+      await Promise.all([loadConfig(), refreshStatus()]);
+      loading.value = false;
+    };
+
+    const logout = async () => {
+      try { await api.logout(); } catch {}
+      authenticated.value = false;
+    };
+
+    // 401 全局拦截
+    onUnauthorized(() => {
+      authenticated.value = false;
+    });
+
     // ---- Nav sections ----
     const navSections = computed(() => {
       const map = {};
@@ -161,7 +202,11 @@ const App = {
 
     const currentNavItem = computed(() => NAV_ITEMS.find(n => n.key === activeTab.value) || NAV_ITEMS[0]);
 
-    const tabMap = { status: StatusPanel, openai: OpenAIConfig, vision: VisionConfig, customize: BotSettings, lists: ListManager, advanced: AdvancedSettings };
+    const tabMap = {
+      status: StatusPanel, openai: OpenAIConfig, vision: VisionConfig,
+      customize: BotSettings, lists: ListManager, advanced: AdvancedSettings,
+      ipban: SecurityPanel, security: SecuritySettings,
+    };
     const currentComponent = computed(() => tabMap[activeTab.value] || StatusPanel);
 
     const loadConfig = async () => {
@@ -186,11 +231,14 @@ const App = {
     };
 
     onMounted(async () => {
-      await Promise.all([loadConfig(), refreshStatus()]);
+      const isAuth = await checkAuth();
+      if (isAuth) {
+        await Promise.all([loadConfig(), refreshStatus()]);
+      }
       loading.value = false;
     });
 
-    return { activeTab, sidebarCollapsed, loading, saving, icons, config, status, navSections, currentNavItem, currentComponent, saveConfig, resetConfig, refreshStatus };
+    return { authenticated, activeTab, sidebarCollapsed, loading, saving, icons, config, status, navSections, currentNavItem, currentComponent, saveConfig, resetConfig, refreshStatus, onLoginSuccess, logout };
   }
 };
 
@@ -198,10 +246,13 @@ const App = {
 const app = createApp(App);
 app.use(ElementPlus);
 for (const [key, comp] of Object.entries(ElementPlusIconsVue)) app.component(key, comp);
+app.component('LoginPage', LoginPage);
 app.component('StatusPanel', StatusPanel);
 app.component('OpenAIConfig', OpenAIConfig);
 app.component('VisionConfig', VisionConfig);
 app.component('BotSettings', BotSettings);
 app.component('ListManager', ListManager);
 app.component('AdvancedSettings', AdvancedSettings);
+app.component('SecurityPanel', SecurityPanel);
+app.component('SecuritySettings', SecuritySettings);
 app.mount('#app');
