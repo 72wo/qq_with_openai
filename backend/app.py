@@ -8,7 +8,7 @@ from collections import deque
 from pathlib import Path
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from contextlib import asynccontextmanager
 
 from .config import Config
@@ -209,14 +209,23 @@ if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=frontend_path), name="static")
 
 
-# 主页路由
-@app.get("/")
-async def root():
-    """返回主页 HTML"""
+# 根路径：禁止直接访问（返回 403）
+@app.get("/", include_in_schema=False)
+@app.head("/", include_in_schema=False)
+async def root_forbidden():
+    """禁止直接访问根目录（用于安全/隐藏管理面板入口）"""
+    return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+
+
+# 管理控制台（SPA）路由 — 提供给 /admin 及其子路径，用于客户端路由支持
+@app.get("/admin", include_in_schema=False)
+@app.get("/admin/", include_in_schema=False)
+@app.get("/admin/{full_path:path}", include_in_schema=False)
+async def admin_panel(full_path: str | None = None):
     html_file = frontend_path / "index.html"
     if html_file.exists():
         return FileResponse(html_file)
-    return {"message": "QQ 机器人 OpenAI 集成系统"}
+    return JSONResponse(status_code=404, content={"detail": "页面不存在"})
 
 
 # Token 页面路由（公开页面）
