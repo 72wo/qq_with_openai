@@ -1,6 +1,7 @@
 /**
  * BotSettings.js — Bot customization (Azure blade sections)
  */
+
 export default {
   name: 'BotSettings',
   props: ['config', 'icons'],
@@ -76,7 +77,7 @@ export default {
               <el-col :span="12">
                 <el-form-item label="表情转义">
                   <el-switch v-model="config.features.emotion_conversion"></el-switch>
-                  <span class="az-helper">将 Emoji 转换为 QQ 表情</span>
+                  <span class="az-helper">将用户发送的 QQ 表情转换为文字供 AI 理解</span>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -124,14 +125,14 @@ export default {
             <el-row :gutter="48">
               <el-col :span="12">
                 <el-form-item label="上下文回溯条数">
-                  <el-input-number v-model="config.features.context_max_messages" :min="1" :max="200" controls-position="right"></el-input-number>
+                  <el-input-number class="typing-multiplier-input" v-model="config.features.context_max_messages" :min="1" :max="200" controls-position="right"></el-input-number>
                   <span class="az-helper">保留的历史对话轮数</span>
                 </el-form-item>
               </el-col>
               <el-col :span="12">
                 <el-form-item label="单条消息建议长度">
-                  <el-input-number v-model="config.features.context_message_max_chars" :min="0" :max="5000" controls-position="right"></el-input-number>
-                  <span class="az-helper">建议 AI 回复的字符数，0 表示不限制，不会截断消息</span>
+                  <el-input-number class="typing-multiplier-input" v-model="config.features.context_message_max_chars" :min="0" :max="5000" :value-on-clear="0" placeholder="0" controls-position="right"></el-input-number>
+                  <span class="az-helper">建议 AI 回复的字符数，0 表示不限制</span>
                 </el-form-item>
               </el-col>
             </el-row>
@@ -139,7 +140,7 @@ export default {
             <el-row :gutter="48">
               <el-col :span="12">
                 <el-form-item label="图片缓存大小 (MB)">
-                  <el-input-number v-model="config.features.image_context_cache_size" :min="10" :max="500" controls-position="right"></el-input-number>
+                  <el-input-number class="typing-multiplier-input" v-model="config.features.image_context_cache_size" :min="10" :max="500" controls-position="right"></el-input-number>
                   <span class="az-helper">图片上下文缓存限制</span>
                 </el-form-item>
               </el-col>
@@ -156,6 +157,7 @@ export default {
         props.config.features.image_processing = false;
       }
     };
+
     return { onImageProcessingChange };
   }
 };

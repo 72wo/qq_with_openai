@@ -1,47 +1,39 @@
 # QQ 机器人 OpenAI 集成方案
 
-基于 napcat WebSocket 客户端，实现一个完整的 QQ 机器人 OpenAI 自动回复系统，包含 Web UI 配置界面。
+基于 NapCat **反向 WebSocket** 的 QQ 机器人 AI 自动回复系统，配套现代化 Web 管理面板。
+
+---
 
 ## 项目特性
 
-- 🤖 **自动回复**：支持私聊和群聊，群聊可设置仅@时回复
-- 🧠 **AI 集成**：灵活配置 OpenAI API，支持自定义 baseurl、apikey、model
-- 🖼️ **图像分析**：启用视觉模型可分析消息中的图像
-- 😊 **表情转义**：自动将 AI 回复中的 emoji 转换为 QQ 表情代码
-- 🛡️ **黑白名单**：支持用户和群聊的黑白名单管理
-- 🎛️ **Web UI**：现代化配置界面，支持多选项卡操作
-- ⚡ **异步处理**：基于 FastAPI 和 asyncio 的高性能架构
+- **AI 自动回复** — 支持私聊 / 群聊，群聊可配置仅 @时回复 或 @所有人也回复
+- **多模型配置** — 聊天模型与视觉模型独立配置，灵活对接 OpenAI 兼容 API
+- **图像识别** — 启用视觉模型后自动分析消息中的图片内容
+- **表情转义** — 将用户发送的 QQ 表情 (`[CQ:face,id=...]`) 转换为文字描述供 AI 理解
+- **上下文记忆** — 多轮对话历史 + 可选上下文压缩（摘要式淘汰旧轮次）
+- **模拟打字** — 按阅读→思考→打字的自然节奏延迟回复，可调速度倍率
+- **黑白名单** — 按用户 ID 或群组 ID 过滤，互斥模式（白名单优先）
+- **好友验证** — HMAC Token 自动审批好友请求，配合公开 Token 生成页面
+- **IP 安全** — 多维度安全规则（速率、连接、行为、模式）+ IP 封禁管理
+- **密码认证** — bcrypt 密码哈希 + JWT HttpOnly Cookie 会话，首次启动自动生成
+- **Web 管理面板** — Azure Portal 风格，Vue 3 + Element Plus，多选项卡配置
 
 ## 系统要求
 
-- Python 3.8+
-- pip（Python 包管理器）
-- napcat 服务运行中（WebSocket 服务）
-- OpenAI API 密钥
+- Python 3.10+
+- NapCat 已运行并配置反向 WebSocket
+- OpenAI 兼容 API 密钥
 
-## 安装步骤
-
-### 1. 克隆项目或下载源码
+## 安装
 
 ```bash
+# 克隆并进入项目
 cd qq_with_openai
-```
 
-### 2. 创建虚拟环境（推荐）
+# (可选) 创建虚拟环境
+python -m venv venv && source venv/bin/activate
 
-```bash
-python -m venv venv
-
-# Linux/Mac
-source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
-```
-
-### 3. 安装依赖
-
-```bash
+# 安装依赖
 pip install -r requirements.txt
 ```
 
@@ -50,355 +42,232 @@ pip install -r requirements.txt
 ### 1. 启动服务
 
 ```bash
-# 进入项目根目录
-cd /path/to/qq_with_openai
-
-# 方式 A：按配置文件 advanced.service_port 启动（推荐）
 python -m backend.run
-
-# 方式 B：直接使用 uvicorn（不读取配置文件端口，需要手动指定）
-python -m uvicorn backend.app:app --reload --port 5000
 ```
 
-服务启动后，访问 `http://localhost:5000` 打开配置面板
+服务端口由 `config/default_config.json` 中 `advanced.service_port` 决定，默认 `5000`。
+也可通过环境变量覆盖：
 
-### 2. 配置 OpenAI
-
-1. 在 Web UI 中打开 **OpenAI 配置** 选项卡
-2. 填写：
-   - **Base URL**：OpenAI API 地址（默认 https://api.openai.com/v1，可使用代理地址）
-   - **API Key**：你的 OpenAI API 密钥
-   - **Model**：使用的模型（如 gpt-4, gpt-3.5-turbo）
-   - **启用视觉模型**：如需要分析图像则开启
-3. 点击 **测试连接** 验证配置
-
-### 3. 配置 napcat 连接
-
-在 **高级设置** 选项卡中配置：
-- **napcat WebSocket URL**：默认 `ws://localhost:8080/ws/napcat`
-- 确保 napcat 服务正常运行
-
-### 4. 自定义 AI 提示词
-
-在 **自定义设置** 选项卡配置：
-- **System Prompt**：AI 的系统提示（决定 AI 的角色和行为）
-- **自动回复**：是否启用自动回复
-- **群聊仅@时回复**：群聊中是否只回复被@的消息
-- **图像处理**：是否处理消息中的图像
-- **表情转义**：是否转换表情符号
-
-### 5. 配置黑白名单
-
-在 **黑白名单** 选项卡中：
-
-**黑名单模式**：
-1. 选择 **模式** 为 "用户黑名单" 或 "群聊黑名单"
-2. 在输入框中输入要屏蔽的 ID（每行一个）
-3. 点击 **添加到黑名单**
-
-**白名单模式**：
-1. 选择 **模式** 为 "用户白名单" 或 "群聊白名单"
-2. 在输入框中输入允许的 ID（每行一个）
-3. 点击 **添加到白名单**
-
-### 6. 保存配置
-
-点击页面底部的 **保存配置** 按钮，配置将保存到 `backend/config/default_config.json`
-
-## 配置文件说明
-
-配置文件位置：`backend/config/default_config.json`
-
-配置结构：
-
-```json
-{
-  "openai": {
-    "baseurl": "https://api.openai.com/v1",
-    "apikey": "sk-...",
-    "model": "gpt-4",
-    "vision_enabled": false
-  },
-  "bot": {
-    "prompt": "你是一个有帮助的 AI 助手",
-    "auto_reply": true,
-    "group_only_at": true
-  },
-  "blacklist": {
-    "mode": "enabled",
-    "users": ["123456", "789012"],
-    "groups": ["111111"],
-    "exceptions": []
-  },
-  "whitelist": {
-    "mode": "disabled",
-    "users": [],
-    "groups": [],
-    "exceptions": []
-  },
-  "features": {
-    "image_processing": true,
-    "emotion_conversion": true
-  },
-  "advanced": {
-    "napcat_url": "ws://localhost:8080/ws/napcat",
-    "service_port": 5000,
-    "log_level": "INFO"
-  }
-}
+```bash
+FLASK_PORT=8000 python -m backend.run
 ```
 
-## API 端点说明
+### 2. 首次登录
 
-### GET `/api/config`
-获取当前配置
+首次启动会在终端打印随机生成的管理员密码，请妥善保存。访问 `http://localhost:<端口>` 进入登录页面。
 
-**响应**：
-```json
-{
-  "id": "config",
-  "data": { /* 配置对象 */ }
-}
-```
+### 3. 配置 NapCat 连接
 
-### POST `/api/config`
-保存配置
+本项目作为 **WebSocket 服务端**，NapCat 作为客户端反向连接：
 
-**请求体**：
-```json
-{
-  "openai": { /* openai 配置 */ },
-  "bot": { /* bot 配置 */ }
-  // ... 其他配置字段
-}
-```
+1. 在 NapCat 中配置反向 WebSocket 地址为 `ws://<本服务IP>:<端口>/ws/napcat`
+2. 如设置了 Token，在 **高级设置** 中填写相同的 `napcat_token`
+3. NapCat 连接后，面板概览页会显示连接状态
 
-### POST `/api/test-connection`
-测试 OpenAI API 连接
+### 4. 配置 AI 模型
 
-**请求体**：
-```json
-{
-  "baseurl": "https://api.openai.com/v1",
-  "apikey": "sk-...",
-  "model": "gpt-4"
-}
-```
+在 **聊天模型** 选项卡中填写：
 
-**响应**：
-```json
-{
-  "success": true,
-  "message": "连接成功"
-}
-```
+- **Base URL** — OpenAI 兼容 API 地址
+- **API Key** — 密钥
+- **Model** — 模型名称
+- 可点击 **测试连接** 验证
 
-### GET `/health`
-健康检查
+如需图像识别，在 **视觉模型** 选项卡中启用并配置。
 
-**响应**：
-```json
-{
-  "status": "healthy",
-  "napcat_connected": true,
-  "config_loaded": true
-}
-```
+### 5. 自定义设置
 
-## 消息处理流程
+在 **自定义设置** 选项卡中配置：
 
-```
-napcat WebSocket 消息
-    ↓
-消息处理器 (MessageHandler)
-    ├─ 检查消息类型 (private/group)
-    ├─ 群聊检查是否被@
-    ├─ 黑白名单检查
-    └─ 通过 → OpenAI API 调用
-                  ↓
-              生成回复文本
-                  ↓
-              图像分析（如果启用）
-                  ↓
-              表情转义（如果启用）
-                  ↓
-              napcat 发送回复
-```
+- **System Prompt** — AI 的角色设定与行为逻辑
+- **自动回复** / **群聊仅@时回复** / **@所有人时也回复**
+- **表情转义** — 将 QQ 表情 CQ 码转为文字（如 `[CQ:face,id=14]` → `[微笑]`）供 AI 理解
+- **模拟人工打字** — 启用后按真实人类节奏延迟回复
+- **上下文记忆** — 回溯条数、压缩开关、单条建议长度等
+
+### 6. 好友验证
+
+访问 `http://<服务地址>/token` 进入公开 Token 生成页面，输入 QQ 号获取验证令牌，将令牌作为好友验证消息发送即可自动通过。
+
+Token 有效期在 **高级设置** 中配置（默认 10 分钟）。
+
+---
 
 ## 项目结构
 
 ```
 qq_with_openai/
+├── config/
+│   ├── default_config.json      # 运行时配置（自动生成）
+│   ├── auth.json                # 认证信息（密码哈希、JWT密钥）
+│   └── ip_bans.json             # IP 封禁持久化
 ├── backend/
-│   ├── app.py                      # FastAPI 主应用
-│   ├── __init__.py
+│   ├── app.py                   # FastAPI 主应用 + 反向 WS 端点
+│   ├── run.py                   # 启动入口
+│   ├── api/
+│   │   ├── routes.py            # 配置/状态/日志 API
+│   │   ├── auth_routes.py       # 登录/登出/改密 API
+│   │   ├── security_routes.py   # IP 封禁/安全规则 API
+│   │   └── friend_routes.py     # 好友验证 Token API
+│   ├── auth/
+│   │   ├── auth_manager.py      # bcrypt + JWT 认证
+│   │   └── dependencies.py      # FastAPI 认证依赖
 │   ├── config/
-│   │   ├── __init__.py
-│   │   ├── config.py              # 配置管理
-│   │   └── default_config.json    # 默认配置文件
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── napcat_client.py       # napcat WebSocket 客户端
-│   │   ├── openai_service.py      # OpenAI API 集成
-│   │   ├── message_handler.py     # 消息处理逻辑
-│   │   ├── image_processor.py     # 图像处理
-│   │   └── face_config.py         # QQ表情ID映射配置
+│   │   └── config.py            # 配置读写管理
 │   ├── models/
-│   │   ├── __init__.py
-│   │   └── models.py              # 数据模型
-│   └── api/
-│       ├── __init__.py
-│       └── routes.py              # REST API 路由
+│   │   └── models.py            # Pydantic 请求/响应模型（含输入校验）
+│   ├── security/
+│   │   ├── ip_ban_manager.py    # IP 封禁核心逻辑
+│   │   ├── ip_ban_middleware.py  # FastAPI 中间件
+│   │   └── rules/               # 安全规则（速率/连接/行为/模式）
+│   └── services/
+│       ├── napcat_client.py     # NapCat WebSocket 通信
+│       ├── message_handler.py   # 消息处理 + 多轮对话
+│       ├── openai_service.py    # OpenAI API 调用
+│       ├── image_processor.py   # 图片预处理
+│       ├── face_config.py       # QQ 表情 ID → 文字映射
+│       └── friend_verification.py # HMAC Token 生成/验证
 ├── frontend/
-│   ├── index.html                 # Web UI
-│   ├── css/
-│   │   └── style.css
-│   ├── js/
-│   │   ├── app.js                 # (已在 HTML 中内联)
-│   │   └── api.js                 # (已在 HTML 中内联)
-│   └── img/                       # 图片资源
-├── requirements.txt               # Python 依赖
-└── README.md                      # 本文件
+│   ├── index.html               # 管理面板入口
+│   ├── token.html               # 好友验证 Token 页面（公开）
+│   ├── css/                     # 样式（变量 + 主题）
+│   └── js/
+│       ├── app.js               # Vue 根实例
+│       ├── api.js               # HTTP 请求封装
+│       └── components/          # Vue 组件（各选项卡）
+├── logs/
+│   └── recent_messages.jsonl    # 消息日志（JSONL 滚动）
+├── requirements.txt
+└── README.md
 ```
 
-## 功能说明
+## 配置说明
 
-### 消息自动回复
-- **私聊**：收到任何消息立即回复
-- **群聊**：默认只回复被@的消息（可通过 `bot.group_only_at` 修改）
+配置文件位于 `config/default_config.json`，所有配置项均可通过 Web 面板修改。
 
-### 黑白名单管理
-- **黑名单模式**：禁止指定用户/群聊向机器人发送消息
-- **白名单模式**：只允许指定用户/群聊向机器人发送消息
-- 可在两种模式间切换
+| 分类                            | 键                                   | 说明                  | 范围/默认值                       |
+| ------------------------------- | ------------------------------------ | --------------------- | --------------------------------- |
+| **openai**                | `baseurl`                          | API 地址              | 字符串，≤500                     |
+|                                 | `apikey`                           | API 密钥              | 字符串，≤500                     |
+|                                 | `model`                            | 模型名称              | 字符串，≤200                     |
+|                                 | `max_tokens`                       | 最大 token 数         | 10–4096                          |
+|                                 | `reply_timeout_sec`                | 回复超时(秒)          | 5–300                            |
+|                                 | `reply_avg_length`                 | 平均回复长度          | 10–2000                          |
+| **vision**                | `enabled`                          | 启用视觉模型          | bool                              |
+|                                 | `use_reply_config`                 | 复用聊天模型配置      | bool                              |
+|                                 | `baseurl` / `apikey` / `model` | 独立视觉模型配置      | 同 openai                         |
+| **bot**                   | `prompt`                           | System Prompt         | ≤5000 字符                       |
+|                                 | `auto_reply`                       | 自动回复              | bool                              |
+|                                 | `group_only_at`                    | 群聊仅@时回复         | bool                              |
+|                                 | `group_reply_at_all`               | @所有人也回复         | bool                              |
+| **features**              | `emotion_conversion`               | 表情转义              | bool                              |
+|                                 | `image_processing`                 | 图像识别              | bool（需视觉模型）                |
+|                                 | `simulate_typing_enabled`          | 模拟打字              | bool                              |
+|                                 | `typing_multiplier`                | 打字速度倍率          | 0.2–3.0                          |
+|                                 | `context_enabled`                  | 启用上下文            | bool                              |
+|                                 | `context_max_messages`             | 回溯轮数              | 1–200                            |
+|                                 | `context_compression_enabled`      | 上下文压缩            | bool                              |
+|                                 | `context_message_max_chars`        | 单条建议长度          | 0–5000，0=不限                   |
+| **blacklist / whitelist** | `mode`                             | 模式                  | disabled / for_users / for_groups |
+|                                 | `users` / `groups`               | ID 列表               | 纯数字字符串                      |
+| **advanced**              | `napcat_url`                       | NapCat WS 地址        | 字符串                            |
+|                                 | `napcat_token`                     | 连接 Token            | 字符串                            |
+|                                 | `service_port`                     | 服务端口              | 1024–65535                       |
+|                                 | `log_level`                        | 日志级别              | DEBUG/INFO/WARNING/ERROR          |
+|                                 | `log_max_length`                   | 日志保留条数          | 20–2000                          |
+|                                 | `session_expiry_hours`             | 会话有效时长(时)      | 0–8760，0=永不过期               |
+|                                 | `friend_token_expiry_minutes`      | 好友 Token 有效期(分) | 1–1440                           |
 
-### 图像分析
-- 启用 `openai.vision_enabled` 时，AI 可以分析消息中的图像
-- 图像会被自动转换为适合 Vision API 的格式
-- 图像分析结果会融入 AI 的回复上下文
+## API 端点
 
-### 表情转义
-- 启用 `features.emotion_conversion` 时，AI 回复中的 emoji（😊） 会自动转换为 QQ 表情代码（[愉快]）
-- 包含常见的百余个 emoji 和对应的 QQ 表情映射
+### 公开端点
+
+| 方法      | 路径                           | 说明                |
+| --------- | ------------------------------ | ------------------- |
+| GET       | `/`                          | 管理面板页面        |
+| GET       | `/token`                     | 好友验证 Token 页面 |
+| GET       | `/health`                    | 健康检查            |
+| POST      | `/api/auth/login`            | 管理员登录          |
+| GET       | `/api/auth/check`            | 检查登录状态        |
+| POST      | `/api/friend/generate-token` | 生成好友验证 Token  |
+| WebSocket | `/ws/napcat`                 | NapCat 反向 WS 接入 |
+
+### 需认证端点（Cookie 鉴权）
+
+| 方法   | 路径                              | 说明                   |
+| ------ | --------------------------------- | ---------------------- |
+| GET    | `/api/config`                   | 获取配置               |
+| POST   | `/api/config`                   | 保存配置               |
+| POST   | `/api/test-connection`          | 测试 OpenAI 连接       |
+| GET    | `/api/status`                   | 获取运行状态与消息日志 |
+| POST   | `/api/logs/clear`               | 清空消息日志           |
+| POST   | `/api/auth/logout`              | 退出登录               |
+| POST   | `/api/auth/change-password`     | 修改密码               |
+| GET    | `/api/security/rules`           | 列出安全规则           |
+| PUT    | `/api/security/rules/{rule_id}` | 修改安全规则           |
+| GET    | `/api/security/bans`            | 列出封禁 IP            |
+| POST   | `/api/security/bans`            | 手动封禁 IP            |
+| DELETE | `/api/security/bans/{ip}`       | 解封 IP                |
+
+## 消息处理流程
+
+```
+NapCat 反向 WebSocket 连入
+        ↓
+  napcat_client 解析 OneBot v11 事件
+        ↓
+  ┌─ 好友请求 → HMAC Token 验证 → 自动通过/拒绝
+  └─ 聊天消息 ↓
+        ├─ 检查自动回复开关
+        ├─ 群聊：检查 @/引用
+        ├─ 黑白名单过滤
+        ├─ 表情转义（QQ 表情 CQ 码 → 文字描述）
+        ├─ 图片分析（视觉模型，可选）
+        ├─ 引用消息拼接
+        ├─ 多轮对话历史构建
+        ├─ OpenAI API 生成回复
+        ├─ 上下文压缩（淘汰旧轮次，可选）
+        ├─ 模拟打字延迟（可选）
+        └─ 通过 NapCat 发送回复
+```
+
+## 安全机制
+
+### 认证
+
+- 首次启动自动生成随机密码（明文仅在终端打印一次）
+- 密码使用 bcrypt 哈希存储（12 轮 salt）
+- JWT 令牌存储在 HttpOnly + SameSite=Strict Cookie 中
+- 支持 HTTPS 反向代理自动检测 `secure` 标志
+
+### IP 安全
+
+- 内置多维度安全规则：速率限制、连接频率、行为检测、请求模式
+- 所有规则参数均可通过 API / 面板调整
+- 自动封禁 + 手动封禁，支持封禁时长配置
+- 封禁数据 JSON 持久化，服务重启不丢失
+- 本地回环 IP 自动白名单
+
+### 输入校验
+
+- 所有 API 请求体使用 Pydantic 模型严格校验
+- 数值字段均有范围限制（`ge` / `le`）
+- 字符串字段有长度限制 + 空字节检测
+- 黑白名单 ID 列表强制纯数字格式校验
+- IP 地址格式校验（IPv4 / IPv6）
+- 安全规则 ID 格式校验
 
 ## 故障排除
 
-### 连接 napcat 失败
-1. 确保 napcat 服务已启动
-2. 检查高级设置中的 WebSocket URL 是否正确
-3. 查看日志输出是否有连接错误提示
-
-### OpenAI API 连接失败
-1. 检查 API Key 是否正确无误
-2. 确保网络连接正常
-3. 如使用代理，确保 baseurl 配置正确
-4. 使用"测试连接"功能验证配置
-
-### Web UI 无法加载
-1. 确保 FastAPI 服务正常运行
-2. 检查浏览器控制台是否有错误
-3. 尝试清除浏览器缓存并重新刷新页面
-
-### 消息不回复
-1. 检查 `bot.auto_reply` 是否启用
-2. 确认发送者不在黑名单中
-3. 如启用白名单，确认发送者在白名单中
-4. 查看 Web UI 的状态监控选项卡是否有错误日志
-
-## 环境变量
-
-可以通过环境变量覆盖默认配置：
-
-```bash
-export FLASK_PORT=5000            # 服务端口
-export FLASK_DEBUG=False          # 调试模式
-export NAPCAT_WS_URL=ws://...     # napcat WebSocket URL
-```
-
-## 示例使用
-
-### 配置一个知识库助手
-
-**System Prompt**：
-```
-你是一个文物知识专家。用户询问的问题可能涉及历史、考古、博物馆等相关内容。
-请根据你的知识库回答问题，如果不确定，请说明你不确定。
-```
-
-### 配置一个翻译机器人
-
-**System Prompt**：
-```
-你是一个翻译助手。用户的消息可能是中文、英文或其他语言。
-请检测消息的语言，如果是中文则翻译为英文，如果是其他语言则翻译为中文。
-只返回翻译结果，不需要额外说明。
-```
-
-## 开发指南
-
-### QQ表情映射
-
-QQ表情通过 `backend/services/face_config.py` 中的 `QQ_FACE_MAP` 字典进行映射，将表情ID转换为文字描述供AI理解。
-
-```python
-QQ_FACE_MAP = {
-    0: "惊讶",
-    1: "撇嘴",
-    2: "色",
-    # ... 更多映射
-}
-```
-
-### 自定义消息处理逻辑
-
-编辑 `backend/services/message_handler.py` 的 `handle_message` 方法来实现自定义逻辑。
-
-### 扩展 API 端点
-
-在 `backend/api/routes.py` 中添加新的路由：
-
-```python
-@router.get("/api/custom-endpoint")
-async def custom_endpoint():
-    return {"custom": "response"}
-```
-
-## 注意事项
-
-1. **API 密钥安全**：不要将 API Key 提交到版本控制系统，使用环境变量或 `.env` 文件
-2. **费用监控**：OpenAI API 调用会产生费用，请监控使用情况
-3. **速率限制**：注意 OpenAI API 的速率限制
-4. **日志大小**：长时间运行时注意日志文件大小
+| 问题          | 排查方法                                                                              |
+| ------------- | ------------------------------------------------------------------------------------- |
+| NapCat 未连接 | 检查 NapCat 反向 WS 地址是否指向本服务 `ws://<IP>:<端口>/ws/napcat`；Token 是否一致 |
+| AI 不回复     | 确认自动回复已开启；检查黑白名单；查看面板日志是否有 API 错误                         |
+| 群聊不回复    | 检查"群聊仅@时回复"开关；确认 Bot 被直接 @ 或消息引用了 Bot                           |
+| API 连接失败  | 使用面板"测试连接"验证；检查 Base URL 和 API Key                                      |
+| 登录密码丢失  | 删除 `config/auth.json` 后重启服务，会重新生成                                      |
+| 图片不识别    | 确认视觉模型已启用且配置正确；检查"图像识别处理"开关                                  |
 
 ## 许可证
 
-此项目遵循 MIT 许可证。
-
-## 贡献
-
-欢迎提交 issue 和 pull request！
-
-## 支持
-
-如有问题，请提交 GitHub Issue 或联系开发者。
-
-## 版本历史
-
-- v1.0.0 (2024-02-14)：初始版本发布
-  - 完整的 napcat WebSocket 集成
-  - OpenAI API 集成
-  - Web UI 配置面板
-  - 黑白名单管理
-  - 图像分析支持
-  - 表情转义功能
-
-## 更新日志
-
-### 计划功能
-
-- [ ] 数据库持久化（SQLite）
-- [ ] 消息历史记录
-- [ ] 插件系统
-- [ ] Docker 部署
-- [ ] 多语言支持
-- [ ] 对话上下文管理
+MIT License

@@ -1,8 +1,9 @@
 """IP 封禁管理 API 路由"""
 
+import re
 import logging
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 
 from ..auth.dependencies import require_auth
@@ -16,6 +17,21 @@ class BanRequest(BaseModel):
     ip: str = Field(..., min_length=1, max_length=45)
     reason: str = Field(default="手动封禁", max_length=200)
     duration_sec: int = Field(default=3600, ge=60, le=2592000)  # 1 min ~ 30 days
+
+    @field_validator("ip")
+    @classmethod
+    def validate_ip(cls, v: str) -> str:
+        v = v.strip()
+        # IPv4 or IPv6 basic validation
+        ipv4 = re.match(r"^\d{1,3}(\.\d{1,3}){3}$", v)
+        ipv6 = re.match(r"^[0-9a-fA-F:]+$", v) and ":" in v
+        if not ipv4 and not ipv6:
+            raise ValueError("无效的 IP 地址格式")
+        if ipv4:
+            parts = v.split(".")
+            if any(int(p) > 255 for p in parts):
+                raise ValueError("无效的 IPv4 地址")
+        return v
 
 
 class RuleUpdate(BaseModel):
@@ -38,6 +54,10 @@ async def list_rules(auth: dict = Depends(require_auth)):
 @router.put("/rules/{rule_id}")
 async def update_rule(rule_id: str, body: RuleUpdate, auth: dict = Depends(require_auth)):
     """修改安全规则参数"""
+    # 校验 rule_id 格式（仅允许字母、数字、下划线、连字符）
+    if not re.match(r"^[a-zA-Z0-9_-]{1,64}$", rule_id):
+        raise HTTPException(status_code=400, detail="无效的规则 ID 格式")
+
     from ..app import app_state
     ban_manager = app_state.get("ip_ban_manager")
     if not ban_manager:

@@ -50,6 +50,13 @@ class VisionConfigUpdate(BaseModel):
     apikey: Optional[str] = Field(default=None, max_length=500)
     model: Optional[str] = Field(default=None, max_length=200)
 
+    @field_validator("baseurl", "apikey", "model", mode="before")
+    @classmethod
+    def check_null_bytes(cls, v):
+        if isinstance(v, str):
+            return _reject_null_bytes(v)
+        return v
+
 
 class BotConfigUpdate(BaseModel):
     prompt: Optional[str] = Field(default=None, max_length=5000)
@@ -57,12 +64,32 @@ class BotConfigUpdate(BaseModel):
     group_only_at: Optional[bool] = None
     group_reply_at_all: Optional[bool] = None
 
+    @field_validator("prompt", mode="before")
+    @classmethod
+    def check_null_bytes(cls, v):
+        if isinstance(v, str):
+            return _reject_null_bytes(v)
+        return v
+
 
 class ListConfigUpdate(BaseModel):
     mode: Optional[str] = Field(default=None, pattern=r"^(disabled|for_users|for_groups)$")
-    users: Optional[List[str]] = None
-    groups: Optional[List[str]] = None
-    exceptions: Optional[List[str]] = None
+    users: Optional[List[str]] = Field(default=None, max_length=1000)
+    groups: Optional[List[str]] = Field(default=None, max_length=1000)
+    exceptions: Optional[List[str]] = Field(default=None, max_length=1000)
+
+    @field_validator("users", "groups", "exceptions", mode="before")
+    @classmethod
+    def validate_id_list(cls, v):
+        import re
+        if v is None:
+            return v
+        if not isinstance(v, list):
+            raise ValueError("必须为列表")
+        for item in v:
+            if not isinstance(item, str) or not re.match(r"^\d{1,15}$", item.strip()):
+                raise ValueError(f"列表项必须为纯数字 ID: {item!r}")
+        return [item.strip() for item in v]
 
 
 class FeaturesConfigUpdate(BaseModel):
@@ -87,6 +114,13 @@ class AdvancedConfigUpdate(BaseModel):
     log_max_length: Optional[int] = Field(default=None, ge=20, le=2000)
     session_expiry_hours: Optional[int] = Field(default=None, ge=0, le=8760)
     friend_token_expiry_minutes: Optional[int] = Field(default=None, ge=1, le=1440)
+
+    @field_validator("napcat_url", "napcat_token", mode="before")
+    @classmethod
+    def check_null_bytes(cls, v):
+        if isinstance(v, str):
+            return _reject_null_bytes(v)
+        return v
 
 
 class ConfigUpdate(BaseModel):
@@ -119,9 +153,16 @@ class BotStatus(BaseModel):
 
 class TestConnectionRequest(BaseModel):
     """测试连接请求"""
-    baseurl: str
-    apikey: str
-    model: str
+    baseurl: str = Field(..., min_length=1, max_length=500)
+    apikey: str = Field(..., min_length=1, max_length=500)
+    model: str = Field(..., min_length=1, max_length=200)
+
+    @field_validator("baseurl", "apikey", "model", mode="before")
+    @classmethod
+    def check_null_bytes(cls, v):
+        if isinstance(v, str):
+            return _reject_null_bytes(v)
+        return v
 
 
 class TestConnectionResponse(BaseModel):

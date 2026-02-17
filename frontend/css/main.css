@@ -551,8 +551,8 @@ html, body {
   border-radius: var(--radius-sm) !important;
   height: 32px !important;
 }
-/* 更小的专用宽度：打字速度倍率 */
-.az-form .typing-multiplier-input { width: 96px !important; }
+/* 更小的专用宽度：打字速度倍率等数值输入 */
+.az-form .el-input-number.typing-multiplier-input { width: 96px !important; min-width: 96px !important; }
 .az-form .el-input-number .el-input__inner { height: 30px !important; line-height: 30px !important; }
 
 /* ---- Select ---- */
