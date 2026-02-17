@@ -11,6 +11,11 @@ logger = logging.getLogger(__name__)
 
 # Token 时间窗口默认 10 分钟
 _DEFAULT_WINDOW_SEC = 600
+# HMAC 签名截断长度 (字节)，24 bytes → 32 base64 字符
+# 总 token 长度 = 32 + 1(点) + 7(时间窗口) = 40，不超过 QQ 验证回答 50 字符限制
+_HMAC_TRUNCATE_BYTES = 24
+# 从 QQ 好友验证 comment 中提取回答的正则
+_ANSWER_RE = re.compile(r"回答[:：]\s*(.+)$", re.DOTALL)
 
 
 class FriendVerificationService:
@@ -33,10 +38,22 @@ class FriendVerificationService:
         sig = self._sign(qq_number, time_window)
         return f"{sig}.{time_window}"
 
+    @staticmethod
+    def extract_token(comment: str) -> str:
+        """从 QQ 好友验证 comment 中提取实际 token
+
+        QQ 会将验证问答格式化为:
+            '问题1:请输入签发的token\n回答:TOKEN_HERE'
+        本方法提取 '回答:' 之后的部分。
+        如果 comment 不含该格式，直接返回原始 comment。
+        """
+        m = _ANSWER_RE.search(comment)
+        return m.group(1).strip() if m else comment.strip()
+
     def verify_token(self, qq_number: str, token: str) -> bool:
         """验证好友请求中的 Token"""
         qq_number = qq_number.strip()
-        token = token.strip()
+        token = self.extract_token(token)
 
         parts = token.split(".")
         if len(parts) != 2:
@@ -67,4 +84,6 @@ class FriendVerificationService:
     def _sign(self, qq_number: str, time_window: int) -> str:
         message = f"{qq_number}|{time_window}".encode("utf-8")
         digest = hmac.new(self._secret, message, hashlib.sha256).digest()
-        return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+        # 截断到 _HMAC_TRUNCATE_BYTES 以缩短 token，适配 QQ 50 字符限制
+        truncated = digest[:_HMAC_TRUNCATE_BYTES]
+        return base64.urlsafe_b64encode(truncated).rstrip(b"=").decode("ascii")
