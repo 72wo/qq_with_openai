@@ -14,7 +14,7 @@ import jwt
 logger = logging.getLogger(__name__)
 
 _JWT_ALGORITHM = "HS256"
-_JWT_EXPIRY_HOURS = 24
+_JWT_EXPIRY_HOURS_DEFAULT = 24
 
 
 class AuthManager:
@@ -74,18 +74,35 @@ class AuthManager:
     # ------------------------------------------------------------------
     # JWT
     # ------------------------------------------------------------------
+    @property
+    def session_expiry_hours(self) -> int:
+        """获取会话有效时长（小时），0 表示永不过期
+        """
+        return self._data.get("session_expiry_hours", _JWT_EXPIRY_HOURS_DEFAULT)
+
+    def set_session_expiry_hours(self, hours: int) -> None:
+        """设置会话有效时长（小时），0 表示永不过期"""
+        self._data["session_expiry_hours"] = hours
+        self._save()
+        logger.info(f"会话有效时长已修改为 {hours} 小时" if hours else "会话有效时长已设置为永不过期")
+
     def create_token(self) -> str:
         now = datetime.now(timezone.utc)
+        expiry_hours = self.session_expiry_hours
         payload = {
             "sub": "admin",
             "iat": now,
-            "exp": now + timedelta(hours=_JWT_EXPIRY_HOURS),
         }
+        if expiry_hours > 0:
+            payload["exp"] = now + timedelta(hours=expiry_hours)
         return jwt.encode(payload, self._jwt_secret, algorithm=_JWT_ALGORITHM)
 
     def validate_token(self, token: str) -> Optional[dict]:
         try:
-            return jwt.decode(token, self._jwt_secret, algorithms=[_JWT_ALGORITHM])
+            options = {}
+            if self.session_expiry_hours == 0:
+                options["verify_exp"] = False
+            return jwt.decode(token, self._jwt_secret, algorithms=[_JWT_ALGORITHM], options=options)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             return None
 

@@ -161,7 +161,7 @@ const App = {
       blacklist: { mode:'disabled', users:[], groups:[], exceptions:[] },
       whitelist: { mode:'disabled', users:[], groups:[], exceptions:[] },
       features:  { image_processing:true, emotion_conversion:true, simulate_typing_enabled:false, typing_multiplier:1.0, typing_base_ms_per_char:60, context_enabled:true, context_max_messages:40, context_compression_enabled:false, context_use_model_for_compression:false, image_context_cache_size:64, context_message_max_chars:200 },
-      advanced:  { napcat_url:'ws://localhost:8080/ws/napcat', napcat_token:'', service_port:5000, log_level:'INFO', log_max_length:200 }
+      advanced:  { napcat_url:'ws://localhost:8080/ws/napcat', napcat_token:'', service_port:5000, log_level:'INFO', log_max_length:200, session_expiry_hours: 24, friend_token_expiry_minutes: 10 }
     });
 
     const status = ref({ napcat_connected:false, napcat_connecting:false, napcat_url:'', napcat_error:'' });
@@ -181,8 +181,12 @@ const App = {
     };
 
     const logout = async () => {
-      try { await api.logout(); } catch {}
-      authenticated.value = false;
+      try {
+        await api.logout();
+        ElMessage.success('已退出');
+        authenticated.value = false;
+        setTimeout(() => { window.location.reload(); }, 500);
+      } catch {}
     };
 
     // 401 全局拦截

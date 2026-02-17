@@ -676,6 +676,9 @@ class NapcatClient:
 
     async def _handle_friend_request(self, data: Dict[str, Any]) -> None:
         """处理好友请求事件"""
+        from datetime import datetime
+        from ..app import append_recent_message
+
         service = getattr(self, "_friend_verification", None)
         if not service:
             logger.debug("好友验证服务未设置，忽略好友请求")
@@ -690,7 +693,14 @@ class NapcatClient:
 
         logger.info(f"收到好友请求: QQ={user_id}, 验证消息={comment!r}")
 
-        if service.verify_token(user_id, comment):
+        # 获取当前日志级别
+        log_level = "INFO"
+        if self.config:
+            log_level = self.config.get("advanced.log_level", "INFO")
+
+        approved = service.verify_token(user_id, comment)
+
+        if approved:
             logger.info(f"好友验证通过: QQ={user_id}")
             await self.call_action("set_friend_add_request", params={
                 "flag": flag,
@@ -703,6 +713,33 @@ class NapcatClient:
                 "approve": False,
                 "reason": "验证令牌无效或已过期",
             })
+
+        # 按日志级别写入不同详细度的活动日志
+        if log_level == "DEBUG":
+            # DEBUG: 完整详情
+            content = (
+                f"好友请求 {'✓ 已通过' if approved else '✗ 已拒绝'} | "
+                f"QQ: {user_id} | 验证消息: {comment!r} | flag: {flag}"
+            )
+        elif log_level == "INFO":
+            # INFO: QQ号 + 结果 + 简要原因
+            reason = "Token 验证成功" if approved else "Token 无效或已过期"
+            content = f"好友请求 {'✓ 已通过' if approved else '✗ 已拒绝'} | QQ: {user_id} | {reason}"
+        else:
+            # WARNING / ERROR: 仅结果
+            content = f"好友请求 {'✓ 已通过' if approved else '✗ 已拒绝'} | QQ: {user_id}"
+
+        append_recent_message({
+            "timestamp": datetime.now().isoformat(),
+            "role": "system",
+            "event_type": "friend_request",
+            "message_type": "friend",
+            "user_id": user_id,
+            "group_id": "",
+            "message_id": "",
+            "content": content,
+            "approved": approved,
+        })
 
     async def run(self):
         """运行客户端（自动重连）"""

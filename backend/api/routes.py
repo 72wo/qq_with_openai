@@ -73,6 +73,27 @@ async def save_config(config_update: ConfigUpdate, auth: dict = Depends(require_
         new_log_level = config.get("advanced.log_level", "INFO")
         logging.getLogger().setLevel(getattr(logging, new_log_level, logging.INFO))
 
+        # 同步会话有效时长（如果在配置中提供）到 AuthManager
+        try:
+            session_hours = config.get("advanced", {}).get("session_expiry_hours")
+            if session_hours is not None:
+                auth_manager = app_state.get("auth_manager")
+                if auth_manager:
+                    auth_manager.set_session_expiry_hours(int(session_hours))
+                    logger.info(f"已将会话有效时长同步到 AuthManager: {session_hours} 小时")
+        except Exception as e:
+            logger.warning(f"同步会话有效时长失败: {e}")
+
+        # 同步好友验证 Token 有效时长
+        try:
+            friend_minutes = config.get("advanced", {}).get("friend_token_expiry_minutes")
+            if friend_minutes is not None:
+                fv_service = app_state.get("friend_verification")
+                if fv_service:
+                    fv_service.set_window_minutes(int(friend_minutes))
+        except Exception as e:
+            logger.warning(f"同步好友验证 Token 有效时长失败: {e}")
+
         new_napcat_url = config.get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
         new_napcat_token = config.get("advanced.napcat_token", "")
         if new_napcat_url != old_napcat_url or new_napcat_token != old_napcat_token:

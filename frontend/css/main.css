@@ -490,6 +490,8 @@ html, body {
 }
 .az-terminal__row:nth-child(even) { background: var(--terminal-stripe); }
 .az-terminal__row:hover { background: var(--azure-blue-lighter); }
+.az-terminal__row--friend-ok  { border-left: 3px solid var(--color-success); }
+.az-terminal__row--friend-fail { border-left: 3px solid var(--color-danger); }
 
 .az-terminal__time {
   color: var(--terminal-comment);

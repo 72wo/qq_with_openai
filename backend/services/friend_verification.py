@@ -25,6 +25,11 @@ class FriendVerificationService:
         self._secret = secret.encode("utf-8") if isinstance(secret, str) else secret
         self.window_sec = window_sec
 
+    def set_window_minutes(self, minutes: int) -> None:
+        """设置 Token 有效时间窗口（分钟）"""
+        self.window_sec = max(60, minutes * 60)  # 最小 1 分钟
+        logger.info(f"好友验证 Token 有效时间窗口已设为 {minutes} 分钟 ({self.window_sec}s)")
+
     # ------------------------------------------------------------------
     # Token 格式: {base64url_hmac}.{time_window}
     # ------------------------------------------------------------------

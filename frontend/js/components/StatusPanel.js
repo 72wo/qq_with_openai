@@ -71,9 +71,11 @@ export default {
             <div
               v-for="(msg, i) in messages" :key="i"
               class="az-terminal__row"
+              :class="{ 'az-terminal__row--friend-ok': msg.event_type === 'friend_request' && msg.approved, 'az-terminal__row--friend-fail': msg.event_type === 'friend_request' && !msg.approved }"
             >
               <span class="az-terminal__time">{{ fmtTime(msg.timestamp) }}</span>
-              <span class="az-terminal__role">[{{ msg.role === 'assistant' ? 'AI' : 'User' }}]</span>
+              <span v-if="msg.event_type === 'friend_request'" class="az-terminal__role" :style="{ color: msg.approved ? 'var(--color-success)' : 'var(--color-danger)' }">[好友请求]</span>
+              <span v-else class="az-terminal__role">[{{ msg.role === 'assistant' ? 'AI' : 'User' }}]</span>
               <span class="az-terminal__msg">{{ stripEmoji(msg.content) }}</span>
             </div>
           </div>

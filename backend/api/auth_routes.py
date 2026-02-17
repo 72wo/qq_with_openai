@@ -22,6 +22,8 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=8, max_length=128)
 
 
+
+
 # ── 路由 ──────────────────────────────────────────────────
 @router.post("/login")
 async def login(body: LoginRequest, request: Request):
@@ -47,6 +49,10 @@ async def login(body: LoginRequest, request: Request):
     forwarded_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip().lower()
     secure_cookie = (request.url.scheme == "https") or (forwarded_proto == "https")
 
+    # Cookie max_age 跟随会话有效时长配置
+    expiry_hours = auth_manager.session_expiry_hours
+    cookie_max_age = expiry_hours * 3600 if expiry_hours > 0 else 31536000  # 永不过期时设为 1 年
+
     # 在本地 HTTP 开发时不设置 secure，以便浏览器能保存会话 Cookie；在 HTTPS/公网场景下保持 secure=True
     response.set_cookie(
         key="session_token",
@@ -54,7 +60,7 @@ async def login(body: LoginRequest, request: Request):
         httponly=True,
         secure=secure_cookie,
         samesite="strict",
-        max_age=86400,
+        max_age=cookie_max_age,
         path="/",
     )
     logger.info(f"管理员登录成功 (secure_cookie={secure_cookie}, scheme={request.url.scheme}, xfp={forwarded_proto})")
@@ -102,3 +108,6 @@ async def change_password(body: ChangePasswordRequest, auth: dict = Depends(requ
         raise HTTPException(status_code=400, detail="当前密码错误")
 
     return {"success": True, "message": "密码修改成功，请重新登录"}
+
+
+

@@ -62,6 +62,7 @@ const api = {
   banIp(data)                      { return http.post('/security/bans', data).then(r => r.data); },
   unbanIp(ip)                      { return http.delete(`/security/bans/${ip}`).then(r => r.data); },
 
+
   // ── 好友验证 ──
   generateFriendToken(qq_number)   { return http.post('/friend/generate-token', { qq_number }).then(r => r.data); },
 };

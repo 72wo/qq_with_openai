@@ -85,6 +85,8 @@ class AdvancedConfigUpdate(BaseModel):
     service_port: Optional[int] = Field(default=None, ge=1024, le=65535)
     log_level: Optional[Literal["DEBUG", "INFO", "WARNING", "ERROR"]] = None
     log_max_length: Optional[int] = Field(default=None, ge=20, le=2000)
+    session_expiry_hours: Optional[int] = Field(default=None, ge=0, le=8760)
+    friend_token_expiry_minutes: Optional[int] = Field(default=None, ge=1, le=1440)
 
 
 class ConfigUpdate(BaseModel):

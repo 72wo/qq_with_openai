@@ -15,10 +15,7 @@ export default {
         <div class="login-card__bar"></div>
         <div class="login-card__header">
           <div class="login-card__logo">
-            <svg viewBox="0 0 32 32" width="40" height="40">
-              <rect x="2" y="2" width="28" height="28" rx="4" fill="#0078d4"/>
-              <text x="16" y="22" text-anchor="middle" fill="#fff" font-size="16" font-weight="700" font-family="Segoe UI,sans-serif">Q</text>
-            </svg>
+            <img src="/static/favicon.svg" width="40" height="40" alt="QQ Bot" style="display:block;" />
           </div>
           <div class="login-card__title">QQ Bot 控制台</div>
           <div class="login-card__subtitle">请输入管理员密码登录</div>

@@ -125,7 +125,8 @@ async def lifespan(app: FastAPI):
     # 初始化好友验证服务
     from .services.friend_verification import FriendVerificationService
     friend_secret = app_state["auth_manager"].friend_verification_secret
-    app_state["friend_verification"] = FriendVerificationService(friend_secret)
+    friend_token_minutes = app_state["config"].get("advanced.friend_token_expiry_minutes", 10)
+    app_state["friend_verification"] = FriendVerificationService(friend_secret, window_sec=friend_token_minutes * 60)
 
     # 初始化 napcat 客户端
     napcat_url = app_state["config"].get("advanced.napcat_url", "ws://localhost:8080/ws/napcat")
