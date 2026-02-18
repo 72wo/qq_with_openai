@@ -191,10 +191,11 @@ class ProactiveScheduler:
     5. 用 AI 生成消息内容 → 发送 → 更新计数器
     """
 
-    def __init__(self, config, napcat_client, openai_service_factory):
+    def __init__(self, config, napcat_client, openai_service_factory, message_handler_factory=None):
         self.config = config
         self.napcat_client = napcat_client
-        self._openai_factory = openai_service_factory  # callable() -> OpenAIService
+        self._openai_factory = openai_service_factory        # callable() -> OpenAIService
+        self._message_handler_factory = message_handler_factory  # callable() -> MessageHandler | None
 
         # 运行状态
         self._running = False
@@ -379,7 +380,10 @@ class ProactiveScheduler:
         self._last_strategy = strategy.get("id", "")
         self._last_target = target.get("label", target_key)
 
-        # 9. 记录日志
+        # 9. 写入对话历史（让后续收到用户回复时能衔接上下文）
+        self._write_to_history(target, message)
+
+        # 10. 记录日志
         from ..app import append_recent_message
         append_recent_message({
             "timestamp": datetime.now().isoformat(),
@@ -455,7 +459,10 @@ class ProactiveScheduler:
         self._last_strategy = strategy.get("id", "")
         self._last_target = target.get("label", target.get("key", ""))
 
-        # 9. 记录日志
+        # 9. 写入对话历史
+        self._write_to_history(target, message)
+
+        # 10. 记录日志
         from ..app import append_recent_message
         append_recent_message({
             "timestamp": datetime.now().isoformat(),
@@ -473,6 +480,33 @@ class ProactiveScheduler:
             f"目标={target.get('label', target.get('key', ''))}"
         )
         return True
+
+    # ── 写入对话历史 ─────────────────────────────────────
+
+    def _write_to_history(self, target: dict, message: str):
+        """将主动消息以 assistant 身份写入 message_handler 的对话历史。
+
+        这样当用户回复时，AI 能看到自己之前主动说了什么，实现真正的上下文衔接。
+        chat_key 格式与 napcat_client 保持一致：
+          - 好友私聊: private:{user_id}
+          - 群聊:     group:{group_id}
+        """
+        if not self._message_handler_factory:
+            return
+        mh = self._message_handler_factory()
+        if not mh:
+            return
+
+        if target.get("type") == "group":
+            chat_key = f"group:{target['group_id']}"
+        else:
+            chat_key = f"private:{target['user_id']}"
+
+        try:
+            mh._append_to_history(chat_key, "assistant", message)
+            logger.debug(f"主动消息已写入对话历史: {chat_key}")
+        except Exception as e:
+            logger.warning(f"写入对话历史失败: {e}")
 
     # ── 目标筛选 ────────────────────────────────────────
 

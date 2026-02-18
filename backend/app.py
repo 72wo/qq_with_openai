@@ -156,10 +156,13 @@ async def lifespan(app: FastAPI):
     def _openai_factory():
         mh = app_state.get("message_handler")
         return mh.openai_service if mh else None
+    def _message_handler_factory():
+        return app_state.get("message_handler")
     app_state["proactive_scheduler"] = ProactiveScheduler(
         config=app_state["config"],
         napcat_client=app_state["napcat_client"],
         openai_service_factory=_openai_factory,
+        message_handler_factory=_message_handler_factory,
     )
     # 如果配置已启用，自动启动调度器
     if app_state["config"].get("proactive", {}).get("enabled", False):
