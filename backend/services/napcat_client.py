@@ -168,6 +168,53 @@ class NapcatClient:
             logger.error(f"删除好友异常: {e}")
             return False
 
+    async def get_group_list(self) -> list:
+        """获取群组列表 (OneBot v11: get_group_list)
+        Returns: [{"group_id": str, "group_name": str, "member_count": int}, ...]
+        """
+        if not self.is_connected:
+            return []
+        try:
+            resp = await self.call_action("get_group_list", timeout=10)
+            if resp and resp.get("status") in {"ok", "async"}:
+                raw_list = resp.get("data") or []
+                return [
+                    {
+                        "group_id": str(item.get("group_id", "")),
+                        "group_name": item.get("group_name", ""),
+                        "member_count": item.get("member_count", 0),
+                    }
+                    for item in raw_list
+                    if item.get("group_id")
+                ]
+        except Exception as e:
+            logger.warning(f"获取群组列表失败: {e}")
+        return []
+
+    async def quit_group(self, group_id: str, is_dismiss: bool = False) -> bool:
+        """退出群组 (OneBot v11: set_group_leave)
+        is_dismiss: 是否解散（仅群主可用）
+        Returns: True 成功, False 失败
+        """
+        if not self.is_connected:
+            return False
+        if not group_id or not str(group_id).isdigit():
+            return False
+        try:
+            resp = await self.call_action(
+                "set_group_leave",
+                params={"group_id": int(group_id), "is_dismiss": is_dismiss},
+                timeout=10,
+            )
+            if resp and resp.get("status") in {"ok", "async"}:
+                logger.info(f"已退出群组: {group_id}")
+                return True
+            logger.warning(f"退出群组失败: {resp}")
+            return False
+        except Exception as e:
+            logger.error(f"退出群组异常: {e}")
+            return False
+
     async def send_message(
         self,
         group_id: Optional[str] = None,

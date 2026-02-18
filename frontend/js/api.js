@@ -70,6 +70,10 @@ const api = {
   getFriendList()                  { return http.get('/friends/list').then(r => r.data); },
   deleteFriend(user_id)            { return http.delete('/friends/delete', { data: { user_id } }).then(r => r.data); },
 
+  // ── 群组管理 ──
+  getGroupList()                   { return http.get('/groups/list').then(r => r.data); },
+  quitGroup(group_id)              { return http.delete('/groups/quit', { data: { group_id } }).then(r => r.data); },
+
   // ── 主动消息 ──
   getProactiveConfig()             { return http.get('/proactive/config').then(r => r.data); },
   saveProactiveConfig(data)        { return http.post('/proactive/config', data).then(r => r.data); },

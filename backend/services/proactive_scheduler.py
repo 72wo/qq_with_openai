@@ -488,8 +488,9 @@ class ProactiveScheduler:
         return targets
 
     def _get_eligible_strategies(self, pc: dict) -> List[dict]:
-        """获取当前时间可用的策略列表"""
-        hour = datetime.now().hour
+        """获取当前时间可用的策略列表（支持分钟精度，优先使用策略覆盖）"""
+        now = datetime.now()
+        now_minutes = now.hour * 60 + now.minute
         strategies_cfg = pc.get("strategies", {})
         result = []
 
@@ -498,13 +499,29 @@ class ProactiveScheduler:
             if not scfg.get("enabled", False):
                 continue
 
-            # 时间段检查
-            t_start, t_end = sdef.get("time_range", [0, 24])
-            if t_start <= t_end:
-                if not (t_start <= hour < t_end):
+            # 时间段检查：优先使用策略配置的 time_range（已存为分钟整数），否则使用定义中的时间（小时级）
+            def to_min(x):
+                if isinstance(x, int):
+                    # 小于等于 24 的视为小时
+                    return x * 60 if x <= 24 else x
+                if isinstance(x, str):
+                    m = re.match(r"^(\d{1,2}):(\d{2})$", x.strip())
+                    if not m:
+                        raise ValueError(f"无法解析时间格式: {x!r}")
+                    hh = int(m.group(1)); mm = int(m.group(2))
+                    return hh * 60 + mm
+                return int(x)
+
+            tr = scfg.get("time_range", sdef.get("time_range", [0, 24]))
+            t_start_min = to_min(tr[0])
+            t_end_min = to_min(tr[1])
+
+            if t_start_min <= t_end_min:
+                if not (t_start_min <= now_minutes < t_end_min):
                     continue
             else:
-                if t_end <= hour < t_start:
+                # 跨日区间
+                if t_end_min <= now_minutes < t_start_min:
                     continue
 
             weight = scfg.get("weight", sdef.get("default_weight", 0.5))

@@ -14,6 +14,7 @@ import AdvancedSettings from '/static/js/components/AdvancedSettings.js';
 import SecurityPanel    from '/static/js/components/SecurityPanel.js';
 import SecuritySettings from '/static/js/components/SecuritySettings.js';
 import FriendManager    from '/static/js/components/FriendManager.js';
+import GroupManager     from '/static/js/components/GroupManager.js';
 import ProactiveSettings from '/static/js/components/ProactiveSettings.js';
 
 const { createApp, ref, computed, onMounted, reactive } = Vue;
@@ -32,6 +33,7 @@ const ICONS = {
   lock:      `<svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`,
   people:    `<svg viewBox="0 0 16 16"><circle cx="6" cy="4.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.8 2.2-5 5-5s5 2.2 5 5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 6.5a2 2 0 110-4" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M12 8c1.7 0 3 1.3 3.5 3" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`,
   message:   `<svg viewBox="0 0 16 16"><path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
+  groups:    `<svg viewBox="0 0 16 16"><circle cx="4.5" cy="5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="11.5" cy="5" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="4" r="2.3" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2 1.6-3.5 3.5-3.5.4 0 .8.1 1.1.2" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M10.4 9.7c.3-.1.7-.2 1.1-.2C13.4 9.5 15 11 15 13" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M4.5 13c0-2 1.6-3.5 3.5-3.5S11.5 11 11.5 13" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`,
   logout:    `<svg viewBox="0 0 16 16"><path d="M6 2h7v12H6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M10 8H1M3 5.5L.5 8 3 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   checkCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#107c10"/><path d="M6 10l2.5 3L14 7" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   errorCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#d13438"/><path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
@@ -44,6 +46,7 @@ const NAV_ITEMS = [
   { key: 'customize', label: '自定义设置', icon: 'settings',  section: '配置' },
   { key: 'proactive', label: '主动消息',   icon: 'message',   section: '管理' },
   { key: 'friends',   label: '好友管理',   icon: 'people',    section: '管理' },
+  { key: 'groups',    label: '群聊管理',   icon: 'groups',    section: '管理' },
   { key: 'lists',     label: '黑白名单',   icon: 'list',      section: '安全' },
   { key: 'ipban',     label: 'IP 安全',    icon: 'shield',    section: '安全' },
   { key: 'security',  label: '密码管理',   icon: 'lock',      section: '安全' },
@@ -141,6 +144,7 @@ const App = {
                 :config="config"
                 :status="status"
                 :icons="icons"
+                :savedAt="savedAt"
                 @refresh="refreshStatus"
                 :key="activeTab"
               />
@@ -155,6 +159,7 @@ const App = {
   setup() {
     const authenticated    = ref(false);
     const activeTab        = ref('status');
+    const savedAt          = ref(0);
     const sidebarCollapsed = ref(false);
     const loading          = ref(true);
     const saving           = ref(false);
@@ -216,7 +221,7 @@ const App = {
       status: StatusPanel, openai: OpenAIConfig, vision: VisionConfig,
       customize: BotSettings, lists: ListManager, advanced: AdvancedSettings,
       ipban: SecurityPanel, security: SecuritySettings, friends: FriendManager,
-      proactive: ProactiveSettings,
+      groups: GroupManager, proactive: ProactiveSettings,
     };
     const currentComponent = computed(() => tabMap[activeTab.value] || StatusPanel);
 
@@ -226,7 +231,7 @@ const App = {
 
     const saveConfig = async () => {
       saving.value = true;
-      try { await api.saveConfig(config.value); ElMessage.success('配置已保存'); } catch {}
+      try { await api.saveConfig(config.value); ElMessage.success('配置已保存'); savedAt.value++; } catch {}
       finally { saving.value = false; }
     };
 
@@ -249,7 +254,7 @@ const App = {
       loading.value = false;
     });
 
-    return { authenticated, activeTab, sidebarCollapsed, loading, saving, icons, config, status, navSections, currentNavItem, currentComponent, saveConfig, resetConfig, refreshStatus, onLoginSuccess, logout };
+    return { authenticated, activeTab, sidebarCollapsed, loading, saving, icons, config, status, navSections, currentNavItem, currentComponent, savedAt, saveConfig, resetConfig, refreshStatus, onLoginSuccess, logout };
   }
 };
 
@@ -267,5 +272,6 @@ app.component('AdvancedSettings', AdvancedSettings);
 app.component('SecurityPanel', SecurityPanel);
 app.component('SecuritySettings', SecuritySettings);
 app.component('FriendManager', FriendManager);
+app.component('GroupManager', GroupManager);
 app.component('ProactiveSettings', ProactiveSettings);
 app.mount('#app');

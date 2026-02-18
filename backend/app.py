@@ -19,6 +19,7 @@ from .api import auth_routes
 from .api import security_routes
 from .api import friend_routes
 from .api import friend_manage_routes
+from .api import group_manage_routes
 from .api import proactive_routes
 
 # 配置日志
@@ -220,6 +221,7 @@ app.include_router(auth_routes.router)
 app.include_router(security_routes.router)
 app.include_router(friend_routes.router)
 app.include_router(friend_manage_routes.router)
+app.include_router(group_manage_routes.router)
 app.include_router(proactive_routes.router)
 app.include_router(routes.router)
 

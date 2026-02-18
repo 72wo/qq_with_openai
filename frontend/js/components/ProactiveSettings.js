@@ -1,6 +1,6 @@
 /**
  * ProactiveSettings.js — 主动消息控制面板
- * 16 种策略开关 + 频率 / 范围 / 时段管理
+ * 16 种策略开关 + 频率 / 范围 / 时段管理 + 策略编辑弹窗 + 好友/群号自动补全
  */
 import api from '/static/js/api.js';
 
@@ -9,7 +9,7 @@ const { ElMessage, ElMessageBox } = ElementPlus;
 
 export default {
   name: 'ProactiveSettings',
-  props: ['config', 'status', 'icons'],
+  props: ['config', 'status', 'icons', 'savedAt'],
   template: `
     <div>
       <div class="az-page-title">
@@ -105,20 +105,20 @@ export default {
                 <div style="font-weight:600;font-size:14px;color:var(--color-text-primary);">{{ s.label }}</div>
                 <div style="font-size:12px;color:var(--color-text-tertiary);margin-top:4px;line-height:1.5;">
                   {{ s.description }}
-                  <span style="margin-left:8px;opacity:.7;">{{ s.time_range[0] }}:00 - {{ s.time_range[1] }}:00</span>
-                  <el-tag v-for="tt in s.target_types" :key="tt" size="small" style="margin-left:4px;" :type="tt==='group' ? 'warning' : 'info'">{{ tt === 'friend' ? '好友' : '群聊' }}</el-tag>
+                  <span style="margin-left:8px;opacity:.7;">
+                    {{ getStrategyTimeRange(s.id, s.time_range)[0] }} - {{ getStrategyTimeRange(s.id, s.time_range)[1] }}
+                  </span>
+                  <el-tag v-for="tt in getStrategyTargetTypes(s.id, s.target_types)" :key="tt" size="small" style="margin-left:4px;" :type="tt==='group' ? 'warning' : 'info'">{{ tt === 'friend' ? '好友' : '群聊' }}</el-tag>
                 </div>
               </div>
             </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-              <span style="font-size:12px;color:var(--color-text-tertiary);">权重</span>
-              <el-input-number
-                :model-value="getStrategyWeight(s.id)"
-                @change="v => setStrategyField(s.id, 'weight', v)"
-                :min="0.1" :max="5.0" :step="0.1" :precision="1"
-                size="small" style="width:120px;"
-                controls-position="right"
-                :disabled="!getStrategyEnabled(s.id)"
+            <div style="flex-shrink:0;">
+              <el-button
+                :icon="EditIcon"
+                circle
+                style="width:28px;height:28px;padding:0;"
+                title="自定义权重、时间与目标"
+                @click="openStrategyEdit(s)"
               />
             </div>
           </div>
@@ -129,6 +129,68 @@ export default {
           <el-button size="small" @click="disableAll">全部禁用</el-button>
         </div>
       </div>
+
+      <!-- ═══ 策略编辑弹窗 ═══ -->
+      <el-dialog
+        v-model="editDialog.visible"
+        :title="editDialog.label ? '编辑策略: ' + editDialog.label : '编辑策略'"
+        width="360px"
+        destroy-on-close
+      >
+        <div style="display:flex;flex-direction:column;gap:20px;padding:8px 0;">
+
+          <!-- 权重 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <span style="font-size:13px;color:var(--color-text-secondary);">权重</span>
+            <el-input-number
+              v-model="editDialog.weight"
+              :min="0.1" :max="5.0" :step="0.1" :precision="1"
+              controls-position="right"
+              style="width:120px;"
+            />
+            <span style="font-size:11px;color:var(--color-text-tertiary);">数值越大，被抽中概率越高</span>
+          </div>
+
+          <!-- 时间段 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <span style="font-size:13px;color:var(--color-text-secondary);">自定义时间段</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <el-time-picker
+                v-model="editDialog.timeStartStr"
+                placeholder="开始"
+                format="HH:mm"
+                value-format="HH:mm"
+                style="width:105px;"
+              />
+              <span style="color:var(--color-text-tertiary);">—</span>
+              <el-time-picker
+                v-model="editDialog.timeEndStr"
+                placeholder="结束"
+                format="HH:mm"
+                value-format="HH:mm"
+                style="width:105px;"
+              />
+            </div>
+            <span style="font-size:11px;color:var(--color-text-tertiary);">覆盖全局活跃时段</span>
+          </div>
+
+          <!-- 目标类型 -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <span style="font-size:13px;color:var(--color-text-secondary);">目标类型</span>
+            <el-checkbox-group v-model="editDialog.targetTypes">
+              <el-checkbox value="friend">好友</el-checkbox>
+              <el-checkbox value="group">群聊</el-checkbox>
+            </el-checkbox-group>
+            <span style="font-size:11px;color:var(--color-text-tertiary);">覆盖策略默认的目标类型</span>
+          </div>
+
+        </div>
+
+        <template #footer>
+          <el-button @click="editDialog.visible = false">取消</el-button>
+          <el-button type="primary" @click="saveStrategyEdit">保存</el-button>
+        </template>
+      </el-dialog>
 
       <!-- ═══ Tab 3: Scope ═══ -->
       <div v-if="subtab==='scope'" class="az-card">
@@ -157,8 +219,18 @@ export default {
               <el-form-item label="允许的好友 QQ 号">
                 <div class="az-id-list-editor">
                   <div class="az-id-list-editor__input">
-                    <el-input v-model="friendInput" placeholder="输入 QQ 号后回车添加" size="small" @keyup.enter="addFriendWl" style="width:200px;" />
-                    <el-button size="small" type="primary" @click="addFriendWl">添加</el-button>
+                    <el-autocomplete
+                      v-model="friendInput"
+                      :fetch-suggestions="queryFriendSuggestions"
+                      placeholder="输入 QQ 号或昵称后回车添加"
+                      size="small"
+                      style="width:220px;"
+                      value-key="value"
+                      @keyup.enter="addFriendWl"
+                      @select="onFriendSelect($event, addFriendWl)"
+                      clearable
+                    />
+                    <el-button size="small" type="primary" @click="addFriendWl" style="height:26px;padding:0 12px;">添加</el-button>
                   </div>
                   <div class="az-id-list-editor__tags">
                     <el-tag v-for="id in pc.friend_whitelist" :key="id" closable @close="removeFriendWl(id)" size="small">{{ id }}</el-tag>
@@ -173,8 +245,18 @@ export default {
               <el-form-item label="允许的群号">
                 <div class="az-id-list-editor">
                   <div class="az-id-list-editor__input">
-                    <el-input v-model="groupInput" placeholder="输入群号后回车添加" size="small" @keyup.enter="addGroupWl" style="width:200px;" />
-                    <el-button size="small" type="primary" @click="addGroupWl">添加</el-button>
+                    <el-autocomplete
+                      v-model="groupInput"
+                      :fetch-suggestions="queryGroupSuggestions"
+                      placeholder="输入群号或群名后回车添加"
+                      size="small"
+                      style="width:220px;"
+                      value-key="value"
+                      @keyup.enter="addGroupWl"
+                      @select="onGroupSelect($event, addGroupWl)"
+                      clearable
+                    />
+                    <el-button size="small" type="primary" @click="addGroupWl" style="height:26px;padding:0 12px;">添加</el-button>
                   </div>
                   <div class="az-id-list-editor__tags">
                     <el-tag v-for="id in pc.group_whitelist" :key="id" closable @close="removeGroupWl(id)" size="small">{{ id }}</el-tag>
@@ -191,8 +273,18 @@ export default {
               <el-form-item label="排除的好友 QQ 号">
                 <div class="az-id-list-editor">
                   <div class="az-id-list-editor__input">
-                    <el-input v-model="friendInput" placeholder="输入 QQ 号后回车添加" size="small" @keyup.enter="addFriendBl" style="width:200px;" />
-                    <el-button size="small" type="primary" @click="addFriendBl">添加</el-button>
+                    <el-autocomplete
+                      v-model="friendInput"
+                      :fetch-suggestions="queryFriendSuggestions"
+                      placeholder="输入 QQ 号或昵称后回车添加"
+                      size="small"
+                      style="width:220px;"
+                      value-key="value"
+                      @keyup.enter="addFriendBl"
+                      @select="onFriendSelect($event, addFriendBl)"
+                      clearable
+                    />
+                    <el-button size="small" type="primary" @click="addFriendBl" style="height:26px;padding:0 12px;">添加</el-button>
                   </div>
                   <div class="az-id-list-editor__tags">
                     <el-tag v-for="id in pc.friend_blacklist" :key="id" closable @close="removeFriendBl(id)" size="small" type="danger">{{ id }}</el-tag>
@@ -207,8 +299,18 @@ export default {
               <el-form-item label="排除的群号">
                 <div class="az-id-list-editor">
                   <div class="az-id-list-editor__input">
-                    <el-input v-model="groupInput" placeholder="输入群号后回车添加" size="small" @keyup.enter="addGroupBl" style="width:200px;" />
-                    <el-button size="small" type="primary" @click="addGroupBl">添加</el-button>
+                    <el-autocomplete
+                      v-model="groupInput"
+                      :fetch-suggestions="queryGroupSuggestions"
+                      placeholder="输入群号或群名后回车添加"
+                      size="small"
+                      style="width:220px;"
+                      value-key="value"
+                      @keyup.enter="addGroupBl"
+                      @select="onGroupSelect($event, addGroupBl)"
+                      clearable
+                    />
+                    <el-button size="small" type="primary" @click="addGroupBl" style="height:26px;padding:0 12px;">添加</el-button>
                   </div>
                   <div class="az-id-list-editor__tags">
                     <el-tag v-for="id in pc.group_blacklist" :key="id" closable @close="removeGroupBl(id)" size="small" type="danger">{{ id }}</el-tag>
@@ -231,7 +333,49 @@ export default {
     const friendInput = ref('');
     const groupInput = ref('');
 
+    // 好友/群聊缓存（用于自动补全）
+    const friendsCache = ref([]);
+    const groupsCache = ref([]);
+
     const msgIcon = `<svg viewBox="0 0 16 16"><path d="M2 3h12a1 1 0 011 1v7a1 1 0 01-1 1H5l-3 3V4a1 1 0 011-1z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`;
+
+    // ── 策略编辑弹窗状态 ────────────────────────────────
+    const editDialog = reactive({
+      visible: false,
+      strategyId: null,
+      label: '',
+      weight: 0.5,
+      timeStartStr: '08:00',
+      timeEndStr: '23:00',
+      targetTypes: ['friend', 'group'],
+    });
+
+    // 时间工具：分钟 <-> 字符串('HH:MM')，并支持输入为小时/分钟/字符串
+    const minutesToStr = (m) => {
+      const hh = Math.floor(m / 60);
+      const mm = m % 60;
+      return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    };
+    const strToMinutes = (s) => {
+      if (!s || typeof s !== 'string') return 0;
+      const m = s.trim().match(/^(\d{1,2}):(\d{2})$/);
+      if (!m) return 0;
+      const hh = parseInt(m[1], 10);
+      const mm = parseInt(m[2], 10);
+      return hh * 60 + mm;
+    };
+    const normalizeToTimeStr = (v) => {
+      if (typeof v === 'number') {
+        // 小于等于 24 的视为小时
+        if (v <= 24) return minutesToStr(v * 60);
+        return minutesToStr(v);
+      }
+      if (typeof v === 'string') {
+        const m = v.trim().match(/^(\d{1,2}):(\d{2})$/);
+        if (m) return String(m[1]).padStart(2, '0') + ':' + String(m[2]).padStart(2, '0');
+      }
+      return '00:00';
+    };
 
     // 本地配置副本（响应式）
     const pc = reactive({
@@ -258,7 +402,8 @@ export default {
 
     let statusTimer = null;
 
-    // 加载配置
+    // ── 加载 ────────────────────────────────────────────
+
     const loadConfig = async () => {
       try {
         const res = await api.getProactiveConfig();
@@ -278,7 +423,6 @@ export default {
       } catch {}
     };
 
-    // 加载策略定义
     const loadStrategies = async () => {
       try {
         const res = await api.getProactiveStrategies();
@@ -286,7 +430,6 @@ export default {
       } catch {}
     };
 
-    // 轮询调度器状态
     const loadStatus = async () => {
       try {
         const res = await api.getProactiveStatus();
@@ -294,32 +437,132 @@ export default {
       } catch {}
     };
 
-    // 策略字段读写 helper
+    // 懒加载好友/群聊缓存（仅在 NapCat 在线时加载一次）
+    const ensureFriendsCache = async () => {
+      if (friendsCache.value.length > 0 || !props.status?.napcat_connected) return;
+      try {
+        const res = await api.getFriendList();
+        friendsCache.value = (res.friends || []).map(f => ({
+          value: f.user_id,
+          label: `${f.user_id}${f.nickname ? ' ' + f.nickname : ''}${f.remark ? ' (' + f.remark + ')' : ''}`,
+        }));
+      } catch {}
+    };
+
+    const ensureGroupsCache = async () => {
+      if (groupsCache.value.length > 0 || !props.status?.napcat_connected) return;
+      try {
+        const res = await api.getGroupList();
+        groupsCache.value = (res.groups || []).map(g => ({
+          value: g.group_id,
+          label: `${g.group_id}${g.group_name ? ' ' + g.group_name : ''}`,
+        }));
+      } catch {}
+    };
+
+    // ── 自动补全 fetch-suggestions ─────────────────────
+
+    const queryFriendSuggestions = async (q, cb) => {
+      await ensureFriendsCache();
+      const lower = q.toLowerCase();
+      const results = friendsCache.value.filter(f =>
+        f.value.includes(q) || f.label.toLowerCase().includes(lower)
+      ).slice(0, 20);
+      cb(results);
+    };
+
+    const queryGroupSuggestions = async (q, cb) => {
+      await ensureGroupsCache();
+      const lower = q.toLowerCase();
+      const results = groupsCache.value.filter(g =>
+        g.value.includes(q) || g.label.toLowerCase().includes(lower)
+      ).slice(0, 20);
+      cb(results);
+    };
+
+    // 选中建议时，把 value 填入输入框并立即 add
+    const onFriendSelect = (item, addFn) => {
+      friendInput.value = item.value;
+      addFn();
+    };
+    const onGroupSelect = (item, addFn) => {
+      groupInput.value = item.value;
+      addFn();
+    };
+
+    // ── 策略字段读写 helper ──────────────────────────────
+
     const getStrategyEnabled = (id) => pc.strategies?.[id]?.enabled ?? false;
     const getStrategyWeight = (id) => pc.strategies?.[id]?.weight ?? 0.5;
+    // 返回字符串形式的时间范围 ['HH:MM','HH:MM']（处理默认值/小时/分钟兼容）
+    const getStrategyTimeRange = (id, defRange) => {
+      const tr = pc.strategies?.[id]?.time_range ?? defRange ?? [0, 24];
+      // 三种可能的存储格式：
+      // - [hour, hour] (例如 [6,10])
+      // - [minutes, minutes] (例如 [360, 600])
+      // - ["HH:MM","HH:MM"]
+      const a = tr[0]; const b = tr[1];
+      return [normalizeToTimeStr(a), normalizeToTimeStr(b)];
+    };
+    const getStrategyTargetTypes = (id, defTypes) => pc.strategies?.[id]?.target_types ?? defTypes ?? ['friend', 'group'];
+
     const setStrategyField = (id, field, val) => {
       if (!pc.strategies) pc.strategies = {};
       if (!pc.strategies[id]) pc.strategies[id] = { enabled: false, weight: 0.5 };
       pc.strategies[id][field] = val;
     };
 
-    const enableAll = () => {
-      strategyDefs.value.forEach(s => setStrategyField(s.id, 'enabled', true));
-    };
-    const disableAll = () => {
-      strategyDefs.value.forEach(s => setStrategyField(s.id, 'enabled', false));
+    const enableAll = () => strategyDefs.value.forEach(s => setStrategyField(s.id, 'enabled', true));
+    const disableAll = () => strategyDefs.value.forEach(s => setStrategyField(s.id, 'enabled', false));
+
+    // ── 策略编辑弹窗 ────────────────────────────────────
+
+    const EditIcon = ElementPlusIconsVue.Edit;
+
+    const openStrategyEdit = (s) => {
+      const overrides = pc.strategies?.[s.id] || {};
+      editDialog.strategyId = s.id;
+      editDialog.label = s.label;
+      editDialog.weight = overrides.weight ?? 0.5;
+      const tr = overrides.time_range ?? s.time_range ?? [8, 23];
+      editDialog.timeStartStr = normalizeToTimeStr(tr[0]);
+      editDialog.timeEndStr = normalizeToTimeStr(tr[1]);
+      editDialog.targetTypes = [...(overrides.target_types ?? s.target_types ?? ['friend', 'group'])];
+      editDialog.visible = true;
     };
 
-    // ID 列表操作
-    const _addId = (list, input, inputRef) => {
-      const val = input.value.trim();
+    const saveStrategyEdit = () => {
+      const id = editDialog.strategyId;
+      if (!id) return;
+      const tStartMin = strToMinutes(editDialog.timeStartStr);
+      const tEndMin = strToMinutes(editDialog.timeEndStr);
+      if (tStartMin >= tEndMin) {
+        ElMessage.warning('时间范围起始必须小于结束');
+        return;
+      }
+      if (editDialog.targetTypes.length === 0) {
+        ElMessage.warning('至少选择一种目标类型');
+        return;
+      }
+      if (!pc.strategies) pc.strategies = {};
+      if (!pc.strategies[id]) pc.strategies[id] = { enabled: false };
+      pc.strategies[id].weight = editDialog.weight;
+      pc.strategies[id].time_range = [tStartMin, tEndMin];
+      pc.strategies[id].target_types = [...editDialog.targetTypes];
+      editDialog.visible = false;
+    };
+
+    // ── ID 列表操作 ──────────────────────────────────────
+
+    const _addId = (list, inputRef) => {
+      const val = inputRef.value.trim();
       if (!val) return;
       if (!/^\d{5,15}$/.test(val)) {
         ElMessage.warning('请输入有效的 QQ/群号 (5-15 位数字)');
         return;
       }
       if (!list.includes(val)) list.push(val);
-      input.value = '';
+      inputRef.value = '';
     };
     const addFriendWl = () => _addId(pc.friend_whitelist, friendInput);
     const addGroupWl = () => _addId(pc.group_whitelist, groupInput);
@@ -330,7 +573,8 @@ export default {
     const removeFriendBl = id => { pc.friend_blacklist = pc.friend_blacklist.filter(v => v !== id); };
     const removeGroupBl = id => { pc.group_blacklist = pc.group_blacklist.filter(v => v !== id); };
 
-    // 手动触发
+    // ── 手动触发 ─────────────────────────────────────────
+
     const manualTrigger = async () => {
       triggering.value = true;
       try {
@@ -341,11 +585,18 @@ export default {
       finally { triggering.value = false; }
     };
 
-    // 将本地配置同步到 config.proactive 以便全局保存
+    // ── 同步到全局 config（供全局保存使用）─────────────
+
     watch(pc, () => {
       if (!props.config.proactive) props.config.proactive = {};
       Object.assign(props.config.proactive, JSON.parse(JSON.stringify(pc)));
     }, { deep: true });
+
+    // ── 保存完成后刷新调度器状态 ─────────────────────────
+
+    watch(() => props.savedAt, (n) => {
+      if (n > 0) loadStatus();
+    });
 
     onMounted(async () => {
       await Promise.all([loadConfig(), loadStrategies(), loadStatus()]);
@@ -359,10 +610,14 @@ export default {
     return {
       subtab, pc, strategyDefs, schedulerStatus, triggering,
       friendInput, groupInput, msgIcon,
-      getStrategyEnabled, getStrategyWeight, setStrategyField,
-      enableAll, disableAll,
+      editDialog, EditIcon,
+      getStrategyEnabled, getStrategyWeight, getStrategyTimeRange, getStrategyTargetTypes,
+      setStrategyField, enableAll, disableAll,
+      openStrategyEdit, saveStrategyEdit,
       addFriendWl, addGroupWl, addFriendBl, addGroupBl,
       removeFriendWl, removeGroupWl, removeFriendBl, removeGroupBl,
+      queryFriendSuggestions, queryGroupSuggestions,
+      onFriendSelect, onGroupSelect,
       manualTrigger,
     };
   }
