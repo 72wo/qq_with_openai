@@ -19,6 +19,7 @@ from .api import auth_routes
 from .api import security_routes
 from .api import friend_routes
 from .api import friend_manage_routes
+from .api import proactive_routes
 
 # 配置日志
 logging.basicConfig(
@@ -36,6 +37,7 @@ app_state = {
     "auth_manager": None,
     "ip_ban_manager": None,
     "friend_verification": None,
+    "proactive_scheduler": None,
 }
 
 
@@ -148,6 +150,20 @@ async def lifespan(app: FastAPI):
     # 确保 task 初始化为 None，防止后续逻辑报错
     app_state["napcat_task"] = None
 
+    # 初始化主动消息调度器
+    from .services.proactive_scheduler import ProactiveScheduler
+    def _openai_factory():
+        mh = app_state.get("message_handler")
+        return mh.openai_service if mh else None
+    app_state["proactive_scheduler"] = ProactiveScheduler(
+        config=app_state["config"],
+        napcat_client=app_state["napcat_client"],
+        openai_service_factory=_openai_factory,
+    )
+    # 如果配置已启用，自动启动调度器
+    if app_state["config"].get("proactive", {}).get("enabled", False):
+        app_state["proactive_scheduler"].start()
+
     # 启动 tracker 定期清理任务（每 30 分钟清理一次过期 IP 追踪数据）
     async def _periodic_cleanup():
         while True:
@@ -168,6 +184,8 @@ async def lifespan(app: FastAPI):
 
     # 关闭事件
     logger.info("应用关闭中...")
+    if app_state.get("proactive_scheduler"):
+        app_state["proactive_scheduler"].stop()
     if app_state.get("cleanup_task"):
         app_state["cleanup_task"].cancel()
     if app_state["napcat_task"]:
@@ -202,6 +220,7 @@ app.include_router(auth_routes.router)
 app.include_router(security_routes.router)
 app.include_router(friend_routes.router)
 app.include_router(friend_manage_routes.router)
+app.include_router(proactive_routes.router)
 app.include_router(routes.router)
 
 

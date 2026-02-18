@@ -49,6 +49,8 @@ async def save_config(config_update: ConfigUpdate, auth: dict = Depends(require_
             config_dict["features"].update(config_update.features.model_dump(exclude_none=True))
         if config_update.advanced:
             config_dict["advanced"].update(config_update.advanced.model_dump(exclude_none=True))
+        if config_update.proactive is not None:
+            config_dict.setdefault("proactive", {}).update(config_update.proactive)
 
         # --- 联动约束 ---
         # 1. 视觉模型未启用时，强制关闭图像处理
@@ -112,6 +114,12 @@ async def save_config(config_update: ConfigUpdate, auth: dict = Depends(require_
             # 纯服务端模式：配置更新后仅重置客户端对象，不发起主动连接
             app_state["napcat_task"] = None
             logger.info("NapCat 客户端配置已更新")
+
+        # 通知主动消息调度器重载配置
+        if config_update.proactive is not None:
+            scheduler = app_state.get("proactive_scheduler")
+            if scheduler:
+                scheduler.restart()
 
         return {"success": True, "message": "配置已保存"}
     except Exception as e:

@@ -69,6 +69,13 @@ const api = {
   // ── 好友管理 ──
   getFriendList()                  { return http.get('/friends/list').then(r => r.data); },
   deleteFriend(user_id)            { return http.delete('/friends/delete', { data: { user_id } }).then(r => r.data); },
+
+  // ── 主动消息 ──
+  getProactiveConfig()             { return http.get('/proactive/config').then(r => r.data); },
+  saveProactiveConfig(data)        { return http.post('/proactive/config', data).then(r => r.data); },
+  getProactiveStatus()             { return http.get('/proactive/status').then(r => r.data); },
+  getProactiveStrategies()         { return http.get('/proactive/strategies').then(r => r.data); },
+  triggerProactive()               { return http.post('/proactive/trigger').then(r => r.data); },
 };
 
 export default api;

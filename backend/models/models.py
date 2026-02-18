@@ -132,6 +132,7 @@ class ConfigUpdate(BaseModel):
     whitelist: Optional[ListConfigUpdate] = None
     features: Optional[FeaturesConfigUpdate] = None
     advanced: Optional[AdvancedConfigUpdate] = None
+    proactive: Optional[dict] = None
 
 
 class ConfigResponse(BaseModel):
