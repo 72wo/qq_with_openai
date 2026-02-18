@@ -3,7 +3,7 @@
  */
 import api from '/static/js/api.js';
 
-const { ref, onMounted, onUnmounted } = Vue;
+const { ref, computed, onMounted, onUnmounted } = Vue;
 
 export default {
   name: 'StatusPanel',
@@ -21,7 +21,9 @@ export default {
         <span class="az-status-banner__icon" v-html="icons.checkCircle"></span>
         <div class="az-status-banner__text">
           <div class="az-status-banner__title">NapCat 服务在线</div>
-          <div class="az-status-banner__desc">通信链路已建立，正在监听消息事件</div>
+          <div class="az-status-banner__desc">
+            {{ botInfoText }}
+          </div>
         </div>
       </div>
       <div v-else class="az-status-banner az-status-banner--err">
@@ -88,13 +90,26 @@ export default {
     const { ElMessage } = ElementPlus;
     const messages = ref([]);
     const termRef = ref(null);
+    const botQQ = ref('');
+    const botNickname = ref('');
     let timer = null;
+
+    const botInfoText = computed(() => {
+      if (botQQ.value && botNickname.value) {
+        return `当前账号: ${botNickname.value} (${botQQ.value})`;
+      } else if (botQQ.value) {
+        return `当前账号: ${botQQ.value}`;
+      }
+      return '通信链路已建立，正在监听消息事件';
+    });
 
     const fetch = async () => {
       try {
         const d = await api.getStatus();
         Object.assign(props.status, { napcat_connected: d.napcat_connected, napcat_url: d.napcat_url, napcat_error: d.napcat_error });
         messages.value = d.recent_messages || [];
+        botQQ.value = d.bot_qq || '';
+        botNickname.value = d.bot_nickname || '';
         if (d.log_max_length && props.config.advanced) props.config.advanced.log_max_length = Number(d.log_max_length);
       } catch {}
     };
@@ -115,6 +130,6 @@ export default {
     onMounted(() => { fetch(); timer = setInterval(fetch, 5000); });
     onUnmounted(() => { if (timer) clearInterval(timer); });
 
-    return { messages, termRef, handleClearLogs, fmtTime, stripEmoji };
+    return { messages, termRef, botInfoText, handleClearLogs, fmtTime, stripEmoji };
   }
 };

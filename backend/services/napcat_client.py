@@ -34,6 +34,7 @@ class NapcatClient:
         self._pending_requests: Dict[str, asyncio.Future] = {}
         self._message_tasks: set[asyncio.Task] = set()
         self._chat_seq_map: Dict[str, int] = {}
+        self._login_info: Optional[Dict[str, Any]] = None  # 缓存 bot 登录信息
 
     async def connect(self):
         """连接到 napcat"""
@@ -89,6 +90,7 @@ class NapcatClient:
         self.connection_mode = "reverse"
         self.last_error = None
         self.reconnect_attempts = 0
+        self._login_info = None  # 清空缓存，重新获取
         logger.info("已接入 napcat 反向 WebSocket 连接")
 
     def mark_external_disconnected(self):
@@ -96,6 +98,75 @@ class NapcatClient:
         self.websocket = None
         self.is_connected = False
         self.last_error = "反向 WebSocket 连接已断开"
+        self._login_info = None
+
+    async def get_login_info(self) -> Optional[Dict[str, Any]]:
+        """获取当前登录的 bot 账号信息（带缓存）
+        Returns: {"user_id": int, "nickname": str} 或 None
+        """
+        if self._login_info:
+            return self._login_info
+        if not self.is_connected:
+            return None
+        try:
+            resp = await self.call_action("get_login_info", timeout=5)
+            if resp and resp.get("status") in {"ok", "async"}:
+                data = resp.get("data") or {}
+                self._login_info = {
+                    "user_id": str(data.get("user_id", "")),
+                    "nickname": data.get("nickname", ""),
+                }
+                logger.info(f"获取登录信息: QQ {self._login_info['user_id']} ({self._login_info['nickname']})")
+                return self._login_info
+        except Exception as e:
+            logger.warning(f"获取登录信息失败: {e}")
+        return None
+
+    async def get_friend_list(self) -> list:
+        """获取好友列表 (OneBot v11: get_friend_list)
+        Returns: [{"user_id": str, "nickname": str, "remark": str}, ...]
+        """
+        if not self.is_connected:
+            return []
+        try:
+            resp = await self.call_action("get_friend_list", timeout=10)
+            if resp and resp.get("status") in {"ok", "async"}:
+                raw_list = resp.get("data") or []
+                return [
+                    {
+                        "user_id": str(item.get("user_id", "")),
+                        "nickname": item.get("nickname", ""),
+                        "remark": item.get("remark", ""),
+                    }
+                    for item in raw_list
+                    if item.get("user_id")
+                ]
+        except Exception as e:
+            logger.warning(f"获取好友列表失败: {e}")
+        return []
+
+    async def delete_friend(self, user_id: str) -> bool:
+        """删除好友 (NapCat: delete_friend)
+        Returns: True 成功, False 失败
+        """
+        if not self.is_connected:
+            return False
+        if not user_id or not str(user_id).isdigit():
+            return False
+        try:
+            resp = await self.call_action(
+                "delete_friend",
+                params={"user_id": int(user_id)},
+                timeout=10,
+            )
+            if resp and resp.get("status") in {"ok", "async"}:
+                logger.info(f"已删除好友: {user_id}")
+                return True
+            logger.warning(f"删除好友失败: {resp}")
+            return False
+        except Exception as e:
+            logger.error(f"删除好友异常: {e}")
+            return False
 
     async def send_message(
         self,

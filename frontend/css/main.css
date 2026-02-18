@@ -647,6 +647,9 @@ html, body {
 .el-button--danger { background: #fff; border: 1px solid var(--color-danger); color: var(--color-danger); }
 .el-button--danger:hover { background: var(--color-danger); color: #fff; }
 
+.el-button--danger.el-button--text { background: transparent; color: var(--color-danger); border: none; }
+.el-button--danger.el-button--text:hover { background: var(--color-danger); color: #fff; }
+
 .el-button.is-loading { opacity: .65; }
 .el-button:focus, .el-button:hover { box-shadow: none !important; }
 .el-button--primary, .el-button--success, .el-button--warning, .el-button--danger { background-image: none !important; }
@@ -912,4 +915,53 @@ html, body {
   height: 16px;
   fill: none;
   stroke: currentColor;
+}
+
+/* ===================================================
+   Friend Manager — Table & Pagination
+   =================================================== */
+.az-friend-table-wrap {
+  overflow-x: auto;
+}
+.az-friend-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+.az-friend-table thead {
+  background: var(--color-bg-alt);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.az-friend-table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.az-friend-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+}
+.az-friend-table tbody tr:hover {
+  background: var(--color-bg-alt);
+}
+.az-friend-table__idx {
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.az-friend-table__qq {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--azure-blue);
+}
+.az-friend-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 14px;
+  border-top: 1px solid var(--color-border);
 }

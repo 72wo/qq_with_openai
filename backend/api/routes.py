@@ -143,6 +143,8 @@ async def get_status(auth: dict = Depends(require_auth)) -> Dict[str, Any]:
         napcat_connected = False
         napcat_error = None
         napcat_url = ""
+        bot_qq = ""
+        bot_nickname = ""
         if napcat_client:
             # 本项目作为 WebSocket 服务器，NapCat 作为客户端连接
             # 直接使用 is_connected 标志判断连接状态
@@ -150,11 +152,23 @@ async def get_status(auth: dict = Depends(require_auth)) -> Dict[str, Any]:
             napcat_error = getattr(napcat_client, "last_error", None)
             napcat_url = napcat_client.ws_url
 
+            # 获取当前登录的 bot 账号信息
+            if napcat_connected:
+                try:
+                    login_info = await napcat_client.get_login_info()
+                    if login_info:
+                        bot_qq = login_info.get("user_id", "")
+                        bot_nickname = login_info.get("nickname", "")
+                except Exception:
+                    pass
+
         return {
             "napcat_connected": napcat_connected,
             "status": "running",
             "napcat_url": napcat_url,
             "napcat_error": napcat_error,
+            "bot_qq": bot_qq,
+            "bot_nickname": bot_nickname,
             "recent_messages": get_recent_messages(),
             "log_max_length": config.get("advanced.log_max_length", 200) if config else 200,
         }

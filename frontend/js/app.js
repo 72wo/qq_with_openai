@@ -13,6 +13,7 @@ import ListManager      from '/static/js/components/ListManager.js';
 import AdvancedSettings from '/static/js/components/AdvancedSettings.js';
 import SecurityPanel    from '/static/js/components/SecurityPanel.js';
 import SecuritySettings from '/static/js/components/SecuritySettings.js';
+import FriendManager    from '/static/js/components/FriendManager.js';
 
 const { createApp, ref, computed, onMounted, reactive } = Vue;
 const { ElMessage } = ElementPlus;
@@ -28,6 +29,7 @@ const ICONS = {
   advanced:  `<svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5 7h6M5 9.5h4" stroke="currentColor" stroke-width="1" stroke-linecap="round"/></svg>`,
   shield:    `<svg viewBox="0 0 16 16"><path d="M8 1L2 4v4c0 3.5 2.6 6.3 6 7 3.4-.7 6-3.5 6-7V4L8 1z" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M6 8l1.5 1.5L10 6.5" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   lock:      `<svg viewBox="0 0 16 16"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>`,
+  people:    `<svg viewBox="0 0 16 16"><circle cx="6" cy="4.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M1 13c0-2.8 2.2-5 5-5s5 2.2 5 5" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 6.5a2 2 0 110-4" fill="none" stroke="currentColor" stroke-width="1.1"/><path d="M12 8c1.7 0 3 1.3 3.5 3" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>`,
   logout:    `<svg viewBox="0 0 16 16"><path d="M6 2h7v12H6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><path d="M10 8H1M3 5.5L.5 8 3 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   checkCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#107c10"/><path d="M6 10l2.5 3L14 7" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
   errorCircle: `<svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="9" fill="#d13438"/><path d="M7 7l6 6M13 7l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>`,
@@ -38,6 +40,7 @@ const NAV_ITEMS = [
   { key: 'openai',    label: '聊天模型',   icon: 'openai',    section: '配置' },
   { key: 'vision',    label: '视觉模型',   icon: 'eye',       section: '配置' },
   { key: 'customize', label: '自定义设置', icon: 'settings',  section: '配置' },
+  { key: 'friends',   label: '好友管理',   icon: 'people',    section: '管理' },
   { key: 'lists',     label: '黑白名单',   icon: 'list',      section: '安全' },
   { key: 'ipban',     label: 'IP 安全',    icon: 'shield',    section: '安全' },
   { key: 'security',  label: '密码管理',   icon: 'lock',      section: '安全' },
@@ -209,7 +212,7 @@ const App = {
     const tabMap = {
       status: StatusPanel, openai: OpenAIConfig, vision: VisionConfig,
       customize: BotSettings, lists: ListManager, advanced: AdvancedSettings,
-      ipban: SecurityPanel, security: SecuritySettings,
+      ipban: SecurityPanel, security: SecuritySettings, friends: FriendManager,
     };
     const currentComponent = computed(() => tabMap[activeTab.value] || StatusPanel);
 
@@ -259,4 +262,5 @@ app.component('ListManager', ListManager);
 app.component('AdvancedSettings', AdvancedSettings);
 app.component('SecurityPanel', SecurityPanel);
 app.component('SecuritySettings', SecuritySettings);
+app.component('FriendManager', FriendManager);
 app.mount('#app');

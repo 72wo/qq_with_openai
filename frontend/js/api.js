@@ -65,6 +65,10 @@ const api = {
 
   // ── 好友验证 ──
   generateFriendToken(qq_number)   { return http.post('/friend/generate-token', { qq_number }).then(r => r.data); },
+
+  // ── 好友管理 ──
+  getFriendList()                  { return http.get('/friends/list').then(r => r.data); },
+  deleteFriend(user_id)            { return http.delete('/friends/delete', { data: { user_id } }).then(r => r.data); },
 };
 
 export default api;

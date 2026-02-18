@@ -18,6 +18,7 @@ from .api import routes
 from .api import auth_routes
 from .api import security_routes
 from .api import friend_routes
+from .api import friend_manage_routes
 
 # 配置日志
 logging.basicConfig(
@@ -200,6 +201,7 @@ create_ip_ban_middleware(app)
 app.include_router(auth_routes.router)
 app.include_router(security_routes.router)
 app.include_router(friend_routes.router)
+app.include_router(friend_manage_routes.router)
 app.include_router(routes.router)
 
 
