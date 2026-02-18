@@ -671,9 +671,22 @@ class ProactiveScheduler:
         # 使用 bot 的人格 prompt 作为 system
         base_prompt = self.config.get("bot.prompt", "你是一个友好的 AI 助手")
         beijing_time_str = now.strftime("%Y年%m月%d日 %H:%M")
+        
+        # 根据目标类型构建不同的提示
+        target_type = target.get("type", "friend")
+        if target_type == "group":
+            context_hint = (
+                f"你现在要在一个群聊中主动发言。"
+                f"群里有多个人，你的消息会被所有人看到。"
+                f"注意：你的称呼和表达方式要适应多人环境，"
+                f"可以是对所有人的问候或分享，而不是针对单个人。"
+            )
+        else:
+            context_hint = f"你现在要主动跟这个人发消息。"
+        
         system_prompt = (
             f"{base_prompt}\n\n"
-            f"[主动消息指令] 你现在要主动发一条消息。"
+            f"[主动消息指令] {context_hint}"
             f"当前北京时间: {beijing_time_str}。"
             f"要求：保持你一贯的说话风格和人设，语气自然随意，"
             f"像真人发的一样，不要有AI感。"
