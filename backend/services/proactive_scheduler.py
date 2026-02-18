@@ -398,9 +398,85 @@ class ProactiveScheduler:
             f"今日已发={self._global_daily_count}"
         )
 
+    # ── 手动触发（纯测试，绕过一切调度约束） ─────────────
+
+    async def manual_trigger(self):
+        """手动触发一次主动消息（测试用）。
+
+        特性：
+        - 不要求调度器处于运行状态
+        - 不受冷却时间、日限额、活跃时段等限制
+        - 不会更新任何计数器 / 冷却记录
+        - 不会影响正常调度节奏
+        """
+        pc = self.config.get("proactive", {})
+
+        # 1. 获取所有目标（跳过冷却 & 日限额）
+        targets = await self._get_eligible_targets(pc, force=True)
+        if not targets:
+            logger.warning("手动触发: 无可用目标（白名单为空或 NapCat 未连接）")
+            return False
+
+        # 2. 获取策略（跳过时间段限制）
+        strategies = self._get_eligible_strategies(pc, force=True)
+        if not strategies:
+            logger.warning("手动触发: 无已启用的策略")
+            return False
+
+        # 3. 加权随机选目标
+        target = self._weighted_pick(targets, key=lambda t: t.get("_score", 1.0))
+
+        # 4. 按目标类型过滤策略
+        target_type = target.get("type", "friend")
+        valid_strategies = [
+            s for s in strategies
+            if target_type in STRATEGY_DEFINITIONS.get(s["id"], {}).get("target_types", [])
+        ]
+        if not valid_strategies:
+            valid_strategies = strategies
+
+        # 5. 加权随机选策略
+        strategy = self._weighted_pick(valid_strategies, key=lambda s: s.get("weight", 0.5))
+
+        # 6. 生成消息
+        message = await self._generate_message(strategy, target, pc)
+        if not message:
+            logger.warning("手动触发: AI 生成消息失败")
+            return False
+
+        # 7. 发送
+        success = await self._send_message(target, message)
+        if not success:
+            return False
+
+        # 8. 仅更新展示用统计，不更新冷却 / 限额计数器
+        self._total_sent += 1
+        self._last_sent_time = time.time()
+        self._last_strategy = strategy.get("id", "")
+        self._last_target = target.get("label", target.get("key", ""))
+
+        # 9. 记录日志
+        from ..app import append_recent_message
+        append_recent_message({
+            "timestamp": datetime.now().isoformat(),
+            "role": "assistant",
+            "event_type": "proactive_manual",
+            "message_type": target_type,
+            "user_id": target.get("user_id", ""),
+            "group_id": target.get("group_id", ""),
+            "message_id": "",
+            "content": f"[手动测试·{STRATEGY_DEFINITIONS.get(strategy['id'], {}).get('label', '?')}] {message}",
+        })
+
+        logger.info(
+            f"手动触发主动消息已发送: 策略={strategy['id']}, "
+            f"目标={target.get('label', target.get('key', ''))}"
+        )
+        return True
+
     # ── 目标筛选 ────────────────────────────────────────
 
-    async def _get_eligible_targets(self, pc: dict) -> List[dict]:
+    async def _get_eligible_targets(self, pc: dict, *, force: bool = False) -> List[dict]:
         """获取可用的目标列表（好友 + 群）"""
         scope_mode = pc.get("scope_mode", "disabled")
         if scope_mode == "disabled":
@@ -444,13 +520,14 @@ class ProactiveScheduler:
                 continue
 
             key = f"friend:{uid}"
-            # 冷却检查
             last = self._target_last_time.get(key, 0)
-            if now - last < min_interval:
-                continue
-            # 日限额检查
-            if self._target_daily_count.get(key, 0) >= per_friend_max:
-                continue
+            if not force:
+                # 冷却检查
+                if now - last < min_interval:
+                    continue
+                # 日限额检查
+                if self._target_daily_count.get(key, 0) >= per_friend_max:
+                    continue
 
             label = f.get("remark") or f.get("nickname") or uid
             # 越久没聊的得分越高（鼓励关心久未联系的人）
@@ -471,10 +548,11 @@ class ProactiveScheduler:
             for gid in group_wl:
                 key = f"group:{gid}"
                 last = self._target_last_time.get(key, 0)
-                if now - last < min_interval:
-                    continue
-                if self._target_daily_count.get(key, 0) >= per_group_max:
-                    continue
+                if not force:
+                    if now - last < min_interval:
+                        continue
+                    if self._target_daily_count.get(key, 0) >= per_group_max:
+                        continue
                 idle_hours = (now - last) / 3600 if last > 0 else 24
                 score = min(2.0, 0.3 + idle_hours / 24)
                 targets.append({
@@ -488,7 +566,7 @@ class ProactiveScheduler:
 
         return targets
 
-    def _get_eligible_strategies(self, pc: dict) -> List[dict]:
+    def _get_eligible_strategies(self, pc: dict, *, force: bool = False) -> List[dict]:
         """获取当前时间可用的策略列表（支持分钟精度，优先使用策略覆盖）"""
         now = datetime.now()
         now_minutes = now.hour * 60 + now.minute
@@ -517,13 +595,14 @@ class ProactiveScheduler:
             t_start_min = to_min(tr[0])
             t_end_min = to_min(tr[1])
 
-            if t_start_min <= t_end_min:
-                if not (t_start_min <= now_minutes < t_end_min):
-                    continue
-            else:
-                # 跨日区间
-                if t_end_min <= now_minutes < t_start_min:
-                    continue
+            if not force:
+                if t_start_min <= t_end_min:
+                    if not (t_start_min <= now_minutes < t_end_min):
+                        continue
+                else:
+                    # 跨日区间
+                    if t_end_min <= now_minutes < t_start_min:
+                        continue
 
             weight = scfg.get("weight", sdef.get("default_weight", 0.5))
             result.append({
@@ -551,14 +630,17 @@ class ProactiveScheduler:
         prompt = strategy["prompt_template"].format(
             target_label=target_label,
             date=now.strftime("%Y年%m月%d日"),
+            time=now.strftime("%H:%M"),
             month=now.month,
         )
 
         # 使用 bot 的人格 prompt 作为 system
         base_prompt = self.config.get("bot.prompt", "你是一个友好的 AI 助手")
+        beijing_time_str = now.strftime("%Y年%m月%d日 %H:%M")
         system_prompt = (
             f"{base_prompt}\n\n"
             f"[主动消息指令] 你现在要主动发一条消息。"
+            f"当前北京时间: {beijing_time_str}。"
             f"要求：保持你一贯的说话风格和人设，语气自然随意，"
             f"像真人发的一样，不要有AI感。"
             f"直接输出消息内容即可，不要加引号、不要说'我会发送'之类。"

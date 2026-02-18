@@ -578,8 +578,12 @@ export default {
     const manualTrigger = async () => {
       triggering.value = true;
       try {
-        await api.triggerProactive();
-        ElMessage.success('已触发一次主动消息');
+        const res = await api.triggerProactive();
+        if (res && res.success) {
+          ElMessage.success(res.message || '已触发一次主动消息');
+        } else {
+          ElMessage.warning(res?.message || '触发未成功，请检查目标和策略配置');
+        }
         await loadStatus();
       } catch {}
       finally { triggering.value = false; }

@@ -246,23 +246,23 @@ async def get_strategies(auth: dict = Depends(require_auth)):
 
 @router.post("/trigger")
 async def manual_trigger(auth: dict = Depends(require_auth)):
-    """手动触发一次主动消息（调试用）"""
+    """手动触发一次主动消息（纯测试功能，绕过所有调度限制）"""
     from ..app import app_state
 
     scheduler = app_state.get("proactive_scheduler")
     if not scheduler:
         raise HTTPException(status_code=500, detail="调度器未初始化")
 
-    if not scheduler._running:
-        raise HTTPException(status_code=400, detail="调度器未运行，请先启用主动消息功能")
-
     napcat = app_state.get("napcat_client")
     if not napcat or not napcat.is_connected:
         raise HTTPException(status_code=503, detail="NapCat 未连接")
 
     try:
-        await scheduler._perform_action()
-        return {"success": True, "message": "已触发一次主动消息"}
+        ok = await scheduler.manual_trigger()
+        if ok:
+            return {"success": True, "message": "已触发一次主动消息（测试）"}
+        else:
+            return {"success": False, "message": "触发失败：无可用目标或策略，请检查白名单和策略配置"}
     except Exception as e:
         logger.error(f"手动触发主动消息失败: {e}")
         raise HTTPException(status_code=500, detail=f"触发失败: {str(e)}")
