@@ -153,7 +153,7 @@ class ProactiveConfigUpdate(BaseModel):
 
 @router.get("/config")
 async def get_proactive_config(auth: dict = Depends(require_auth)):
-    """获取主动消息配置（按当前 bot 账号区分）"""
+    """获取主动消息配置"""
     from ..app import app_state
     from ..services.proactive_scheduler import get_default_proactive_config
 
@@ -162,15 +162,17 @@ async def get_proactive_config(auth: dict = Depends(require_auth)):
         raise HTTPException(status_code=500, detail="配置服务未初始化")
 
     all_config = config.get_all()
-    bot_qq = await _get_bot_qq(app_state)
-    pc = _get_account_config(all_config, bot_qq, get_default_proactive_config)
+    pc = all_config.get("proactive")
+    if not pc:
+        pc = get_default_proactive_config()
 
+    bot_qq = await _get_bot_qq(app_state)
     return {"success": True, "data": pc, "bot_qq": bot_qq}
 
 
 @router.post("/config")
 async def save_proactive_config(body: ProactiveConfigUpdate, auth: dict = Depends(require_auth)):
-    """保存主动消息配置（按当前 bot 账号区分）"""
+    """保存主动消息配置（专用端点，带 Pydantic 校验）"""
     from ..app import app_state
     from ..services.proactive_scheduler import get_default_proactive_config
 
@@ -179,8 +181,7 @@ async def save_proactive_config(body: ProactiveConfigUpdate, auth: dict = Depend
         raise HTTPException(status_code=500, detail="配置服务未初始化")
 
     all_config = config.get_all()
-    bot_qq = await _get_bot_qq(app_state)
-    pc = _get_account_config(all_config, bot_qq, get_default_proactive_config)
+    pc = all_config.setdefault("proactive", get_default_proactive_config())
 
     # 合并更新（仅覆盖非 None 字段）
     update = body.model_dump(exclude_none=True)
@@ -205,6 +206,7 @@ async def save_proactive_config(body: ProactiveConfigUpdate, auth: dict = Depend
     if scheduler:
         scheduler.restart()
 
+    bot_qq = await _get_bot_qq(app_state)
     return {"success": True, "message": "主动消息配置已保存", "bot_qq": bot_qq}
 
 
