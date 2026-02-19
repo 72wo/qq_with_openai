@@ -40,11 +40,9 @@ class MessageHandler:
         apikey = self.config.get("openai.apikey")
         model = self.config.get("openai.model", "gpt-4")
 
-        max_tokens = int(self.config.get("openai.max_tokens", 500) or 500)
-        reply_timeout = int(self.config.get("openai.reply_timeout_sec", 60) or 60)
-
+        reply_timeout = int(self.config.get("features.reply_timeout_sec", 60) or 60)
         if apikey:
-            self.openai_service = OpenAIService(baseurl, apikey, model, max_tokens=max_tokens, timeout=reply_timeout)
+            self.openai_service = OpenAIService(baseurl, apikey, model, timeout=reply_timeout)
 
         # 初始化视觉模型
         vision_enabled = self.config.get("vision.enabled", False)
@@ -445,7 +443,7 @@ class MessageHandler:
 
         try:
             base_prompt = self.config.get("bot.prompt", "你是一个有帮助的 AI 助手")
-            # 添加回复长度建议
+            # 添加回复长度建议（来自"单条消息建议长度"配置）
             suggested_len = int(self.config.get("features.context_message_max_chars", 0) or 0)
             if suggested_len > 0:
                 system_prompt = base_prompt + f"\n请将回复控制在约{suggested_len}个字符左右。"
@@ -463,10 +461,7 @@ class MessageHandler:
             if not messages:
                 return None
 
-            # 获取配置的平均回复长度（作为max_tokens）
-            avg_length = int(self.config.get("openai.reply_avg_length", 50) or 50)
-            
-            return await self.openai_service.generate_reply(messages, system_prompt, max_tokens=avg_length)
+            return await self.openai_service.generate_reply(messages, system_prompt)
         except Exception as e:
             logger.error(f"生成回复出错: {str(e)}")
             return None

@@ -166,12 +166,12 @@ const App = {
     const icons            = ICONS;
 
     const config = ref({
-      openai:    { baseurl:'', apikey:'', model:'gpt-4', reply_avg_length:50, max_tokens:500, reply_timeout_sec:60 },
+      openai:    { baseurl:'', apikey:'', model:'gpt-4' },
       vision:    { enabled:false, use_reply_config:true, baseurl:'', apikey:'', model:'gpt-4-vision-preview' },
       bot:       { prompt:'', auto_reply:true, group_only_at:true, group_reply_at_all:false },
       blacklist: { mode:'disabled', users:[], groups:[], exceptions:[] },
       whitelist: { mode:'disabled', users:[], groups:[], exceptions:[] },
-      features:  { image_processing:true, emotion_conversion:true, simulate_typing_enabled:false, typing_multiplier:1.0, typing_base_ms_per_char:60, context_enabled:true, context_max_messages:40, context_compression_enabled:false, context_use_model_for_compression:false, image_context_cache_size:64, context_message_max_chars:200 },
+      features:  { image_processing:true, emotion_conversion:true, simulate_typing_enabled:false, typing_multiplier:1.0, typing_base_ms_per_char:60, context_enabled:true, context_max_messages:40, context_compression_enabled:false, context_use_model_for_compression:false, image_context_cache_size:64, context_message_max_chars:200, reply_timeout_sec:60 },
       advanced:  { napcat_url:'ws://localhost:8080/ws/napcat', napcat_token:'', service_port:5000, log_level:'INFO', log_max_length:200, session_expiry_hours: 24, friend_token_expiry_minutes: 10 }
     });
 

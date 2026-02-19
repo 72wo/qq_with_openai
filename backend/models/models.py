@@ -31,9 +31,6 @@ class OpenAIConfigUpdate(BaseModel):
     baseurl: Optional[str] = Field(default=None, max_length=500)
     apikey: Optional[str] = Field(default=None, max_length=500)
     model: Optional[str] = Field(default=None, max_length=200)
-    max_tokens: Optional[int] = Field(default=None, ge=10, le=4096)
-    reply_timeout_sec: Optional[int] = Field(default=None, ge=5, le=300)
-    reply_avg_length: Optional[int] = Field(default=None, ge=10, le=2000)
 
     @field_validator("baseurl", "apikey", "model", mode="before")
     @classmethod
@@ -104,6 +101,7 @@ class FeaturesConfigUpdate(BaseModel):
     context_use_model_for_compression: Optional[bool] = None
     image_context_cache_size: Optional[int] = Field(default=None, ge=10, le=500)
     context_message_max_chars: Optional[int] = Field(default=None, ge=0, le=5000)
+    reply_timeout_sec: Optional[int] = Field(default=None, ge=5, le=300)
 
 
 class AdvancedConfigUpdate(BaseModel):

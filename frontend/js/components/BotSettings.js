@@ -144,6 +144,12 @@ export default {
                   <span class="az-helper">图片上下文缓存限制</span>
                 </el-form-item>
               </el-col>
+              <el-col :span="12">
+                <el-form-item label="回复超时 (秒)">
+                  <el-input-number class="typing-multiplier-input" v-model="config.features.reply_timeout_sec" :min="5" :max="300" controls-position="right"></el-input-number>
+                  <span class="az-helper">等待 AI 回复的最长时间</span>
+                </el-form-item>
+              </el-col>
             </el-row>
           </el-form>
         </div>

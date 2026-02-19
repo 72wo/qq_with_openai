@@ -693,12 +693,14 @@ class ProactiveScheduler:
             f"直接输出消息内容即可，不要加引号、不要说'我会发送'之类。"
         )
 
-        # 获取配置的回复长度
-        avg_length = int(self.config.get("openai.reply_avg_length", 50) or 50)
+        # 添加回复长度建议（来自"单条消息建议长度"配置）
+        suggested_len = int(self.config.get("features.context_message_max_chars", 0) or 0)
+        if suggested_len > 0:
+            system_prompt += f"\n请将回复控制在约{suggested_len}个字符左右。"
 
         try:
             messages = [{"role": "user", "content": prompt}]
-            reply = await openai_service.generate_reply(messages, system_prompt, max_tokens=avg_length)
+            reply = await openai_service.generate_reply(messages, system_prompt)
             if reply:
                 # 清理可能的引号包裹
                 reply = reply.strip().strip('"').strip("'").strip('"').strip('"')

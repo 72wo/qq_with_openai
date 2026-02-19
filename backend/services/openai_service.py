@@ -7,11 +7,10 @@ import json
 class OpenAIService:
     """OpenAI API 集成服务"""
 
-    def __init__(self, baseurl: str, apikey: str, model: str, max_tokens: int = 500, timeout: int = 60):
+    def __init__(self, baseurl: str, apikey: str, model: str, timeout: int = 60):
         self.baseurl = baseurl.rstrip('/') if baseurl else "https://api.openai.com/v1"
         self.apikey = apikey
         self.model = model
-        self.max_tokens = max_tokens
         self.timeout = aiohttp.ClientTimeout(total=timeout)
 
     async def test_connection(self) -> tuple[bool, str]:
@@ -45,7 +44,7 @@ class OpenAIService:
         except Exception as e:
             return False, f"连接错误: {str(e)}"
 
-    async def generate_reply(self, messages: List[Dict[str, str]], system_prompt: str = None, max_tokens: int = None) -> Optional[str]:
+    async def generate_reply(self, messages: List[Dict[str, str]], system_prompt: str = None) -> Optional[str]:
         """生成AI回复"""
         try:
             request_messages = []
@@ -55,9 +54,6 @@ class OpenAIService:
 
             request_messages.extend(messages)
 
-            # 使用传入的 max_tokens，如果没有则使用默认值
-            tokens = max_tokens if max_tokens is not None else self.max_tokens
-
             async with aiohttp.ClientSession() as session:
                 headers = {
                     "Authorization": f"Bearer {self.apikey}",
@@ -66,8 +62,7 @@ class OpenAIService:
                 payload = {
                     "model": self.model,
                     "messages": request_messages,
-                    "temperature": 0.7,
-                    "max_tokens": tokens
+                    "temperature": 0.7
                 }
 
                 async with session.post(

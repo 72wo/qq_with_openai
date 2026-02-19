@@ -35,28 +35,6 @@ export default {
 
       <div class="az-card">
         <div class="az-card__header">
-          <span class="az-card__title">回复参数</span>
-        </div>
-        <div class="az-card__body">
-          <el-form label-width="140px" class="az-form">
-            <el-form-item label="平均回复长度">
-              <el-input-number v-model="config.openai.reply_avg_length" :min="10" :max="2000" controls-position="right"></el-input-number>
-              <span class="az-helper">影响 AI 每次回复的平均字数</span>
-            </el-form-item>
-            <el-form-item label="最大回复 Token">
-              <el-input-number v-model="config.openai.max_tokens" :min="10" :max="4096" controls-position="right"></el-input-number>
-              <span class="az-helper">单次回复允许的最大 Token 数量</span>
-            </el-form-item>
-            <el-form-item label="回复超时 (秒)">
-              <el-input-number v-model="config.openai.reply_timeout_sec" :min="5" :max="300" controls-position="right"></el-input-number>
-              <span class="az-helper">等待 AI 回复的最长时间</span>
-            </el-form-item>
-          </el-form>
-        </div>
-      </div>
-
-      <div class="az-card">
-        <div class="az-card__header">
           <span class="az-card__title">连接测试</span>
         </div>
         <div class="az-card__body">

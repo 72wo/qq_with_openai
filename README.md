@@ -150,9 +150,6 @@ qq_with_openai/
 | **openai**                | `baseurl`                          | API 地址              | 字符串，≤500                     |
 |                                 | `apikey`                           | API 密钥              | 字符串，≤500                     |
 |                                 | `model`                            | 模型名称              | 字符串，≤200                     |
-|                                 | `max_tokens`                       | 最大 token 数         | 10–4096                          |
-|                                 | `reply_timeout_sec`                | 回复超时(秒)          | 5–300                            |
-|                                 | `reply_avg_length`                 | 平均回复长度          | 10–2000                          |
 | **vision**                | `enabled`                          | 启用视觉模型          | bool                              |
 |                                 | `use_reply_config`                 | 复用聊天模型配置      | bool                              |
 |                                 | `baseurl` / `apikey` / `model` | 独立视觉模型配置      | 同 openai                         |
@@ -168,6 +165,7 @@ qq_with_openai/
 |                                 | `context_max_messages`             | 回溯轮数              | 1–200                            |
 |                                 | `context_compression_enabled`      | 上下文压缩            | bool                              |
 |                                 | `context_message_max_chars`        | 单条建议长度          | 0–5000，0=不限                   |
+|                                 | `reply_timeout_sec`                | 回复超时(秒)          | 5–300                            |
 | **blacklist / whitelist** | `mode`                             | 模式                  | disabled / for_users / for_groups |
 |                                 | `users` / `groups`               | ID 列表               | 纯数字字符串                      |
 | **advanced**              | `napcat_url`                       | NapCat WS 地址        | 字符串                            |
