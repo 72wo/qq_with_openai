@@ -196,6 +196,13 @@ async def lifespan(app: FastAPI):
         app_state["napcat_task"].cancel()
     if app_state["napcat_client"]:
         await app_state["napcat_client"].disconnect()
+    # 关闭 OpenAI 持久化会话
+    handler = app_state.get("message_handler")
+    if handler:
+        if handler.openai_service:
+            await handler.openai_service.close()
+        if handler.vision_service:
+            await handler.vision_service.close()
     # 持久化 IP 封禁数据
     if app_state.get("ip_ban_manager"):
         app_state["ip_ban_manager"].save()
